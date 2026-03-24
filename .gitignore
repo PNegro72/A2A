@@ -1,0 +1,8 @@
+a2a_env/
+__pycache__/
+.env
+*.pyc
+*.pyo
+*.pyd
+.ipynb_checkpoints/
+a2a-protocol-488221-de424eb7f166.json
