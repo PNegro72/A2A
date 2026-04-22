@@ -1,0 +1,23 @@
+{
+  "name": "busquedas_internas",
+  "url": "http://localhost:8000/a2a/busquedas_internas",
+  "description": "Recibe una Job Description estructurada, busca candidatos internos en el ATS y los rankea con IA. Retorna un ResultadoRanking al orquestador.",
+  "version": "1.0.0",
+  "defaultInputModes": ["application/json", "text/plain"],
+  "defaultOutputModes": ["application/json"],
+  "capabilities": {
+    "streaming": false,
+    "functions": true
+  },
+  "skills": [
+    {
+      "id": "buscar_candidatos",
+      "name": "Buscar y Rankear Candidatos Internos",
+      "description": "Dado un JobDescriptionEstructurada (JSON), consulta el ATS (Workday), rankea los candidatos con IA y devuelve un ResultadoRanking.",
+      "tags": ["HR", "Reclutamiento", "Ranking", "ATS"],
+      "examples": [
+        "Buscamos un Senior Python Developer con experiencia en FastAPI y Docker. Nivel Individual Contributor. El candidato liderará el desarrollo de microservicios para el área de pagos."
+      ]
+    }
+  ]
+}

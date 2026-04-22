@@ -1,0 +1,46 @@
+[project]
+name = "agentes-reclutamiento"
+version = "0.4.0"
+description = "Agentes de reclutamiento A2A para búsquedas internas de talento"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # google-adk incluye google-genai como dependencia transitiva; no hace falta
+    # listarlo por separado. Provee el CLI `adk` y toda la infraestructura de agentes.
+    "google-adk>=1.0.0",
+    # a2a-sdk es utilizado internamente por ADK para el protocolo A2A. Se lista
+    # explícitamente para garantizar compatibilidad de versión.
+    "a2a-sdk>=0.2.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "python-dotenv>=1.0.0",
+    # Lectura de CVs en formato PowerPoint (.pptx)
+    "python-pptx>=1.0.0",
+    # Álgebra vectorial para similitud coseno en batch (escala a miles de CVs)
+    "numpy>=1.26.0",
+    # Embeddings locales para búsqueda semántica de CVs (sin API key, ~90MB modelo)
+    "sentence-transformers>=3.0.0",
+    # httpx es necesario para la integración futura con Workday API.
+    "httpx>=0.27.0",
+    # supabase se agrega en el orquestador, no aquí.
+    # NO agregar: arrastra pyiceberg que requiere compilar C++ en Windows.
+    # "supabase>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.12.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["agentes"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

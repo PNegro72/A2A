@@ -1,0 +1,24 @@
+{
+  "name": "job_description",
+  "url": "http://localhost:8000/a2a/job_description",
+  "description": "Parsea Job Descriptions en texto libre y las estructura en JSON. Extrae título del rol, descripción, nivel de management y skills requeridas.",
+  "version": "1.0.0",
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["application/json"],
+  "capabilities": {
+    "streaming": false,
+    "functions": false
+  },
+  "skills": [
+    {
+      "id": "parsear_jd",
+      "name": "Parsear Job Description",
+      "description": "Recibe un JD en texto libre y retorna un JSON con role_title, role_description, management_level y skills.",
+      "tags": ["HR", "Reclutamiento", "Parsing"],
+      "examples": [
+        "Senior Software Engineer - Plataforma de Pagos. Buscamos un/a Senior Software Engineer...",
+        "Engineering Manager - Equipo de Data. Liderá un equipo de 8 ingenieros..."
+      ]
+    }
+  ]
+}
