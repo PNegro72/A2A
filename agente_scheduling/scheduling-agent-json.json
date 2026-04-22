@@ -1,0 +1,705 @@
+{
+  "name": "Scheduling Agent",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "scheduling-agent",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -512,
+        0
+      ],
+      "id": "acf460d9-7e38-43cd-a5c6-c432d30abb50",
+      "name": "webhook_entry",
+      "webhookId": "b8b24f3f-ec1f-431e-b409-aedd89523426"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "propose_slots",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "726b1f04-c381-42c6-9357-38576726b3e8"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "propose_slots"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "bf84608c-4d00-4a83-8376-2f7717a66e8e",
+                    "leftValue": "={{ $json.body.action }}",
+                    "rightValue": "confirm_booking",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "confirm_booking"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -304,
+        0
+      ],
+      "id": "75b1a929-ecba-4c0b-82f6-47553ae3dd6f",
+      "name": "switch_action"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\n\nconst errors = [];\n\nif (!body.participants || !Array.isArray(body.participants) || body.participants.length < 2) {\n  errors.push(\"'participants' must be an array with at least 2 emails\");\n}\n\nif (!body.window || !body.window.start || !body.window.end) {\n  errors.push(\"'window.start' y 'window.end' are required fields\");\n}\n\nif (!body.duration_minutes || typeof body.duration_minutes !== 'number' || body.duration_minutes <= 0) {\n  errors.push(\"'duration_minutes' must be a positive number\");\n}\n\nif (errors.length > 0) {\n  return [{\n    json: {\n      valid: false,\n      errors: errors\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    participants: body.participants,\n    window: body.window,\n    duration_minutes: body.duration_minutes\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        -592
+      ],
+      "id": "ed718ded-e46c-4425-a16e-117375ae4e4b",
+      "name": "validate_propose_payload_js"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "1f529d7b-beff-4565-a715-ba18ce25e7ed",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        256,
+        -592
+      ],
+      "id": "d4b76b00-aafe-4878-8332-efe770c056ab",
+      "name": "if_payload_valid"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"slots_proposed\",\n  \"slots\": {{ JSON.stringify($json.slots) }},\n  \"participants\": {{ JSON.stringify($json.participants) }},\n  \"window\": {{ JSON.stringify($json.window) }},\n  \"duration_minutes\": {{ $json.duration_minutes }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1328,
+        -944
+      ],
+      "id": "a492e678-b7ac-49d2-8c47-b0807b2cb0fb",
+      "name": "resp_slots_proposed"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"code\": \"INVALID_PAYLOAD\",\n  \"errors\": \"{{ $json.errors.join(', ') }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1520,
+        -448
+      ],
+      "id": "c1de4d8b-da30-448c-b4ed-837adf778e76",
+      "name": "resp_invalid_payload"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"meeting_confirmed\",\n  \"event_id\": \"{{ $json.id }}\",\n  \"event_link\": \"{{ $json.htmlLink }}\",\n  \"meet_link\": \"{{ $json.hangoutLink }}\",\n  \"summary\": \"{{ $json.summary }}\",\n  \"start\": \"{{ $json.start.dateTime }}\",\n  \"end\": \"{{ $json.end.dateTime }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1536,
+        -272
+      ],
+      "id": "43a78dad-921a-4349-a8b9-638b866032d6",
+      "name": "resp_confirm_booking"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"status\": \"error\", \"code\": \"UNKNOWN_ACTION\" }",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        192,
+        384
+      ],
+      "id": "c4e4a329-47de-43e7-b47d-7a20c4d5677e",
+      "name": "resp_unknown_action"
+    },
+    {
+      "parameters": {
+        "jsCode": "const events = $input.all();\nconst firstItem = events[0].json;\n\nconst windowStart = new Date(firstItem.window?.start || $('if_payload_valid').first().json.window.start).getTime();\nconst windowEnd = new Date(firstItem.window?.end || $('if_payload_valid').first().json.window.end).getTime();\nconst durationMs = (firstItem.duration_minutes || $('if_payload_valid').first().json.duration_minutes) * 60 * 1000;\n\n// Construir bloques ocupados desde los eventos reales del calendario\nconst busyBlocks = events\n  .filter(item => item.json.start?.dateTime && item.json.end?.dateTime)\n  .map(item => ({\n    start: new Date(item.json.start.dateTime).getTime(),\n    end: new Date(item.json.end.dateTime).getTime()\n  }))\n  .sort((a, b) => a.start - b.start);\n\n// Fusionar bloques solapados\nconst merged = [];\nfor (const block of busyBlocks) {\n  if (merged.length === 0 || block.start > merged[merged.length - 1].end) {\n    merged.push({ ...block });\n  } else {\n    merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, block.end);\n  }\n}\n\n// Calcular gaps libres y generar slots\nconst slots = [];\nlet cursor = windowStart;\n\nfor (const block of merged) {\n  if (block.start > cursor && (block.start - cursor) >= durationMs) {\n    slots.push({\n      start: new Date(cursor).toISOString(),\n      end: new Date(cursor + durationMs).toISOString()\n    });\n  }\n  cursor = Math.max(cursor, block.end);\n}\n\n// Gap final\nif ((windowEnd - cursor) >= durationMs) {\n  slots.push({\n    start: new Date(cursor).toISOString(),\n    end: new Date(cursor + durationMs).toISOString()\n  });\n}\n\nconst validData = $('if_payload_valid').first().json;\n\nreturn [{\n  json: {\n    slots: slots.slice(0, 5),\n    participants: validData.participants,\n    window: validData.window,\n    duration_minutes: validData.duration_minutes\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        784,
+        -896
+      ],
+      "id": "90441dfe-3388-4dde-889a-ea4953260145",
+      "name": "compute_available_slots"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json.body;\n\nconst errors = [];\n\nif (!body.participants || !Array.isArray(body.participants) || body.participants.length < 2) {\n  errors.push(\"'participants' debe ser un array con al menos 2 emails\");\n}\n\nif (!body.chosen_slot || !body.chosen_slot.start || !body.chosen_slot.end) {\n  errors.push(\"'chosen_slot.start' y 'chosen_slot.end' son requeridos\");\n}\n\nif (!body.meeting_title || typeof body.meeting_title !== 'string') {\n  errors.push(\"'meeting_title' es requerido\");\n}\n\nif (errors.length > 0) {\n  return [{\n    json: {\n      valid: false,\n      errors: errors\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    valid: true,\n    participants: body.participants,\n    chosen_slot: body.chosen_slot,\n    meeting_title: body.meeting_title,\n    location_or_link: body.location_or_link || null\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -32,
+        16
+      ],
+      "id": "def80e25-5d2c-43e1-a6a4-64a08a11667c",
+      "name": "validate_confirm_payload"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "955200d4-6bb4-4e84-ae4c-78a55f8b1a24",
+              "leftValue": "={{ $json.valid }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        336,
+        16
+      ],
+      "id": "3a4412df-ee7a-4e12-992e-9c10d15f1582",
+      "name": "if_confirm_payload_valid"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"code\": \"INVALID_PAYLOAD\",\n  \"action\": \"confirm_booking\",\n  \"errors\": \"{{ $json.errors.join(', ') }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1056,
+        256
+      ],
+      "id": "884d4d6a-237f-4347-a714-4882cee2fb6b",
+      "name": "resp_confirm_invalid_payload"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "value": "schedulingagentacn@gmail.com",
+          "mode": "list",
+          "cachedResultName": "schedulingagentacn@gmail.com"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $json.window.start }}",
+        "timeMax": "={{ $json.window.end }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        544,
+        -816
+      ],
+      "id": "e4358319-6c5f-406e-ad16-04ba84ea361c",
+      "name": "get_calendar_availability",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "qzVaIhuNmpgjn2rZ",
+          "name": "Google Calendar account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "calendar": {
+          "__rl": true,
+          "value": "schedulingagentacn@gmail.com",
+          "mode": "list",
+          "cachedResultName": "schedulingagentacn@gmail.com"
+        },
+        "start": "={{ $json.chosen_slot.start }}",
+        "end": "={{ $json.chosen_slot.end }}",
+        "additionalFields": {
+          "attendees": [
+            "={{ $json.participants[0] }}",
+            "={{ $json.participants[1] }}"
+          ],
+          "conferenceDataUi": {
+            "conferenceDataValues": {
+              "conferenceSolution": "hangoutsMeet"
+            }
+          },
+          "location": "={{ $json.location_or_link}}",
+          "sendUpdates": "all",
+          "summary": "={{ $json.meeting_title }}"
+        }
+      },
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        608,
+        -176
+      ],
+      "id": "f308827b-ec5f-41e7-a2e5-c57331a28cbc",
+      "name": "create_calendar_event",
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "qzVaIhuNmpgjn2rZ",
+          "name": "Google Calendar account"
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "07cd6302-4c07-4e12-a83a-984653e11bc1",
+              "leftValue": "={{ $json.slots.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1008,
+        -896
+      ],
+      "id": "3f6752cf-bd16-4606-bb55-8a6c630bd019",
+      "name": "if_slots_available"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"no_slots_available\",\n  \"window_checked\": {\n    \"start\": \"{{ $json.window.start }}\",\n    \"end\": \"{{ $json.window.end }}\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1360,
+        -752
+      ],
+      "id": "7e70bd76-37d2-48a0-918d-5c636ea0961a",
+      "name": "resp_no_slots_available"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "79058fc6-35c0-4fe0-a4c9-eb3e6e00a303",
+              "leftValue": "={{ $json.id }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        992,
+        -192
+      ],
+      "id": "598991ed-9e42-4680-8fa8-54d4e69b026d",
+      "name": "if_event_created"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"code\": \"EVENT_CREATION_FAILED\",\n  \"phase\": \"create_event\",\n  \"message\": \"Event could not be created.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1536,
+        -112
+      ],
+      "id": "0f0f6c6b-fafb-41e4-9fa2-803c08448d58",
+      "name": "resp_event_creation_failed"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"code\": \"CALENDAR_API_ERROR\",\n  \"phase\": \"fetch_availability\",\n  \"message\": \"Failed to fetch calendar availability. Please verify authentication.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1360,
+        -576
+      ],
+      "id": "477e12b3-fbeb-444a-a4fd-b7781347c30a",
+      "name": "resp_fetch_availability_error"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"status\": \"error\",\n  \"code\": \"CALENDAR_API_ERROR\",\n  \"phase\": \"create_event\",\n  \"message\": \"Failed to create the event in Google Calendar.\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        1376,
+        64
+      ],
+      "id": "bc5d59f1-98d4-476c-986a-d76bc6b24cbc",
+      "name": "resp_create_event_api_error"
+    },
+    {
+      "parameters": {
+        "path": "scheduling-agent-card",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -496,
+        608
+      ],
+      "id": "cec9c7a4-3e13-4e9f-98b3-70a5122581fb",
+      "name": "webhook_card",
+      "webhookId": "d75d3f4b-7b9f-457b-ae62-402fe2790b47"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{\n  \"name\": \"scheduling_agent\",\n  \"version\": \"1.0.0\",\n  \"description\": \"Schedules meetings and interviews. Queries participants' Google Calendar availability, proposes free slots within a given time window, and creates confirmed events with an auto-generated Google Meet link. All datetimes in UTC.\",\n  \"when_to_use\": \"When the user wants to schedule, book, arrange, check availability for, or confirm a meeting, interview, call, or calendar event.\",\n  \"webhook_url\": \"https://n8ngen-era6fafhg4e8f2ep.eastus-01.azurewebsites.net/webhook/scheduling-agent\",\n  \"http_method\": \"POST\",\n  \"actions\": [\n    {\n      \"name\": \"propose_slots\",\n      \"description\": \"Finds free time slots in the participants' calendars within a given window and returns up to 5 available slots of the requested duration. Use this when the user did NOT provide an exact date and time, but rather a range (e.g., 'next week', 'tomorrow afternoon').\",\n      \"request_schema\": {\n        \"action\": \"propose_slots\",\n        \"participants\": [\"email1@example.com\", \"email2@example.com\"],\n        \"window\": { \"start\": \"ISO8601 UTC\", \"end\": \"ISO8601 UTC\" },\n        \"duration_minutes\": \"number > 0\"\n      },\n      \"possible_responses\": [\n        { \"status\": \"slots_proposed\", \"fields\": [\"slots[]\", \"participants\", \"window\", \"duration_minutes\"] },\n        { \"status\": \"no_slots_available\", \"fields\": [\"window_checked\"] },\n        { \"status\": \"error\", \"fields\": [\"code\", \"errors\"] }\n      ]\n    },\n    {\n      \"name\": \"confirm_booking\",\n      \"description\": \"Creates an event in the first participant's calendar (the owner) and invites the rest. Automatically generates a Google Meet link. Use this when the user has already chosen a specific slot, either by requesting it directly or by selecting one of the slots previously proposed by 'propose_slots'.\",\n      \"request_schema\": {\n        \"action\": \"confirm_booking\",\n        \"participants\": [\"email1@example.com\", \"email2@example.com\"],\n        \"chosen_slot\": { \"start\": \"ISO8601 UTC\", \"end\": \"ISO8601 UTC\" },\n        \"meeting_title\": \"string\",\n        \"location_or_link\": \"string (optional)\"\n      },\n      \"possible_responses\": [\n        { \"status\": \"meeting_confirmed\", \"fields\": [\"event_id\", \"event_link\", \"meet_link\", \"summary\", \"start\", \"end\"] },\n        { \"status\": \"error\", \"fields\": [\"code\", \"phase\", \"message\"] }\n      ]\n    }\n  ],\n  \"conventions\": {\n    \"datetime_format\": \"ISO 8601 UTC with Z suffix (e.g., '2026-04-21T14:00:00Z')\",\n    \"participants_rules\": \"Array of emails, minimum 2. The FIRST email is the 'owner': the event is created in their calendar. The rest are invitees.\",\n    \"state\": \"Stateless: each request is independent. The orchestrator must remember previously proposed slots in order to map user references like 'the second one' to a concrete slot.\"\n  }\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        -112,
+        608
+      ],
+      "id": "605588bf-d400-4147-b36b-af5cc280b450",
+      "name": "resp_agent_card"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "webhook_entry": {
+      "main": [
+        [
+          {
+            "node": "switch_action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "switch_action": {
+      "main": [
+        [
+          {
+            "node": "validate_propose_payload_js",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "validate_confirm_payload",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resp_unknown_action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate_propose_payload_js": {
+      "main": [
+        [
+          {
+            "node": "if_payload_valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_payload_valid": {
+      "main": [
+        [
+          {
+            "node": "get_calendar_availability",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resp_invalid_payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "compute_available_slots": {
+      "main": [
+        [
+          {
+            "node": "if_slots_available",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "validate_confirm_payload": {
+      "main": [
+        [
+          {
+            "node": "if_confirm_payload_valid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_confirm_payload_valid": {
+      "main": [
+        [
+          {
+            "node": "create_calendar_event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resp_confirm_invalid_payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "get_calendar_availability": {
+      "main": [
+        [
+          {
+            "node": "compute_available_slots",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resp_fetch_availability_error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "create_calendar_event": {
+      "main": [
+        [
+          {
+            "node": "if_event_created",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resp_create_event_api_error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_slots_available": {
+      "main": [
+        [
+          {
+            "node": "resp_slots_proposed",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resp_no_slots_available",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "if_event_created": {
+      "main": [
+        [
+          {
+            "node": "resp_confirm_booking",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "resp_event_creation_failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "webhook_card": {
+      "main": [
+        [
+          {
+            "node": "resp_agent_card",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "f3a34a00-ac44-448f-a312-a61733a187b4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "bce7858a856c99f74030074d76e93d6a3b692a1e3d630936aa8a8420dad0f09a"
+  },
+  "id": "Dk3Si2a-bEywCJyh1-t9-",
+  "tags": []
+}

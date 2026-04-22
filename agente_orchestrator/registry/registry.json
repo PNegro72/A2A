@@ -1,0 +1,9 @@
+{
+  "agents": [
+    {
+      "name": "scheduling_agent",
+      "card_url_env": "SCHEDULING_AGENT_CARD_URL",
+      "fallback_path": "fallback_cards/scheduling_agent.json"
+    }
+  ]
+}

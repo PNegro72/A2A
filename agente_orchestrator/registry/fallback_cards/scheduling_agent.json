@@ -1,0 +1,45 @@
+{
+  "name": "scheduling_agent",
+  "version": "1.0.0",
+  "description": "Schedules meetings and interviews. Queries participants' Google Calendar availability, proposes free slots within a given time window, and creates confirmed events with an auto-generated Google Meet link. All datetimes in UTC.",
+  "when_to_use": "When the user wants to schedule, book, arrange, check availability for, or confirm a meeting, interview, call, or calendar event.",
+  "webhook_url": "https://n8ngen-era6fafhg4e8f2ep.eastus-01.azurewebsites.net/webhook/scheduling-agent",
+  "http_method": "POST",
+  "actions": [
+    {
+      "name": "propose_slots",
+      "description": "Finds free time slots in the participants' calendars within a given window and returns up to 5 available slots of the requested duration. Use this when the user did NOT provide an exact date and time, but rather a range (e.g., 'next week', 'tomorrow afternoon').",
+      "request_schema": {
+        "action": "propose_slots",
+        "participants": ["email1@example.com", "email2@example.com"],
+        "window": { "start": "ISO8601 UTC", "end": "ISO8601 UTC" },
+        "duration_minutes": "number > 0"
+      },
+      "possible_responses": [
+        { "status": "slots_proposed", "fields": ["slots[]", "participants", "window", "duration_minutes"] },
+        { "status": "no_slots_available", "fields": ["window_checked"] },
+        { "status": "error", "fields": ["code", "errors"] }
+      ]
+    },
+    {
+      "name": "confirm_booking",
+      "description": "Creates an event in the first participant's calendar (the owner) and invites the rest. Automatically generates a Google Meet link. Use this when the user has already chosen a specific slot, either by requesting it directly or by selecting one of the slots previously proposed by 'propose_slots'.",
+      "request_schema": {
+        "action": "confirm_booking",
+        "participants": ["email1@example.com", "email2@example.com"],
+        "chosen_slot": { "start": "ISO8601 UTC", "end": "ISO8601 UTC" },
+        "meeting_title": "string",
+        "location_or_link": "string (optional)"
+      },
+      "possible_responses": [
+        { "status": "meeting_confirmed", "fields": ["event_id", "event_link", "meet_link", "summary", "start", "end"] },
+        { "status": "error", "fields": ["code", "phase", "message"] }
+      ]
+    }
+  ],
+  "conventions": {
+    "datetime_format": "ISO 8601 UTC with Z suffix (e.g., '2026-04-21T14:00:00Z')",
+    "participants_rules": "Array of emails, minimum 2. The FIRST email is the 'owner': the event is created in their calendar. The rest are invitees.",
+    "state": "Stateless: each request is independent. The orchestrator must remember previously proposed slots in order to map user references like 'the second one' to a concrete slot."
+  }
+}
