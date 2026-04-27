@@ -4,6 +4,21 @@
       "name": "scheduling_agent",
       "card_url_env": "SCHEDULING_AGENT_CARD_URL",
       "fallback_path": "fallback_cards/scheduling_agent.json"
+    },
+    {
+      "name": "busquedas_internas_agent",
+      "card_url_env": "BUSQUEDAS_INTERNAS_AGENT_CARD_URL",
+      "fallback_path": "fallback_cards/busquedas_internas_agent.json"
+    },
+    {
+      "name": "job_description_agent",
+      "card_url_env": "JOB_DESCRIPTION_AGENT_CARD_URL",
+      "fallback_path": "fallback_cards/job_description_agent.json"
+    },
+    {
+      "name": "entrevistas_agent",
+      "card_url_env": "ENTREVISTAS_AGENT_CARD_URL",
+      "fallback_path": "fallback_cards/entrevistas_agent.json"
     }
   ]
 }

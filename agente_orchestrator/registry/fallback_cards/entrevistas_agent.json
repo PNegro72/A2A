@@ -1,0 +1,38 @@
+{
+  "name": "entrevistas_agent",
+  "version": "1.0.0",
+  "description": "Prepares a complete interview kit for a given candidate. Reads the candidate profile from Supabase, searches for public information (LinkedIn, GitHub, previous employers), generates personalized technical and behavioral questions specific to the candidate's background, produces a Word document kit, saves the result to Supabase, and optionally creates a draft contact email in Outlook.",
+  "when_to_use": "When the user wants to prepare an interview for a specific candidate: generate tailored interview questions, produce the interview kit document, or draft a contact email to the candidate about the open position.",
+  "webhook_url": "http://localhost:8000/a2a/entrevistas",
+  "http_method": "POST",
+  "actions": [
+    {
+      "name": "preparar_entrevista",
+      "description": "Given a candidate ID and a selection process ID, orchestrates the full interview preparation flow: reads the candidate profile, runs a public web search on the candidate and their previous employers, generates personalized questions by category (technical, behavioral, culture, pressure), produces the interview kit as a Word document, and persists the result in Supabase. If 'enviar_email' is true, also drafts a contact email in Outlook — the email is never sent automatically.",
+      "request_schema": {
+        "action": "preparar_entrevista",
+        "candidato_id": "UUID string — candidate's ID in Supabase",
+        "proceso_id": "UUID string — selection process ID in Supabase",
+        "jd_texto": "string (optional) — Job Description text. If omitted, the agent fetches it from Supabase using proceso_id.",
+        "enviar_email": "boolean (optional, default false) — if true, a draft email is created in Outlook to contact the candidate"
+      },
+      "possible_responses": [
+        {
+          "status": "ok",
+          "fields": ["candidato_nombre", "proceso_id", "kit_path_docx", "preguntas_total", "guardado_en_supabase"]
+        },
+        {
+          "status": "error",
+          "fields": ["message"]
+        }
+      ]
+    }
+  ],
+  "conventions": {
+    "email_behavior": "The email is NEVER sent automatically. Setting 'enviar_email': true only creates a draft in Outlook. The recruiter must review and send it manually.",
+    "question_categories": "Questions are grouped into four categories: 'técnica' (role-specific technical depth), 'conductual' (behavioral STAR-method), 'cultura' (values and team fit), 'presión' (reaction under uncertainty or failure).",
+    "web_search": "The agent searches for the candidate's LinkedIn/GitHub profile and validates their listed employers. If no public information is found, it continues with CV data only — this step is non-blocking.",
+    "questions_specificity": "Questions are always tailored to the specific candidate's CV, projects, and companies. Generic questions are avoided. If the JD requires skills not listed in the CV, questions are included to probe for hidden knowledge.",
+    "state": "Each request is independent. The kit document is saved locally at the configured OUTPUT_DIR. The result summary is persisted in Supabase. The orchestrator must pass candidato_id and proceso_id — the agent does not infer them."
+  }
+}
