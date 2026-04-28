@@ -8,7 +8,10 @@
  * Si necesitás cambiar la URL del orchestrator, el nombre del agente, el
  * modo de transporte (sse/polling) o los timeouts, hacelo en environment.ts,
  * NO en este archivo.
+ * 
+ * ##
  */
+
 import { Injectable } from '@angular/core';
 import { environment } from '../../../environments/environment';
 
