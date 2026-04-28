@@ -34,14 +34,13 @@ load_dotenv()
 # CVS_DIR y CACHE_FILE se resuelven la primera vez que se llama a Buscar_candidatos_similares,
 # no al importar el módulo. Esto evita que un .env ausente rompa el import y bloquee
 # los breakpoints del debugger antes de entrar a cualquier función.
-EMBEDDING_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 _st_model: SentenceTransformer | None = None
 
 
 def _get_model() -> SentenceTransformer:
     global _st_model
     if _st_model is None:
-        _st_model = SentenceTransformer(EMBEDDING_MODEL)
+        _st_model = SentenceTransformer(get_settings().EMBEDDING_MODEL)
     return _st_model
 # endregion
 
@@ -148,7 +147,7 @@ def Buscar_candidatos_similares(
 
     cache = Cargar_cache(cache_file)
     cache_actualizado = False
-    cvs_data : list[Cvs_data] = []
+    cvs_data: list[Cvs_data] = []
 
     # --- Paso 1: cargar / actualizar embeddings de los CVs ---
     for pptx_path in sorted(cvs_dir.glob("*.pptx")):

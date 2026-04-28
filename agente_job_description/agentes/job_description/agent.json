@@ -1,6 +1,6 @@
 {
   "name": "job_description",
-  "url": "http://localhost:8000/a2a/job_description",
+  "url": "http://localhost:8001/a2a/job_description",
   "description": "Parsea Job Descriptions en texto libre y las estructura en JSON. Extrae título del rol, descripción, nivel de management y skills requeridas.",
   "version": "1.0.0",
   "defaultInputModes": ["text/plain"],

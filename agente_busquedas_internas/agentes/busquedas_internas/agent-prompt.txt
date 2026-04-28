@@ -15,6 +15,11 @@ Recibís un objeto JobDescription con los campos:
 - role_description: str
 - management_level: str
 - skills: list[str]
+- cantidad_candidatos: int | null  (cuántos candidatos quiere ver el usuario; null = default del sistema)
+
+IMPORTANTE: cuando llames a `consultar_ats`, pasale el JD COMPLETO con los 5 campos,
+incluyendo `cantidad_candidatos` tal como vino. La tool internamente lo usa para
+limitar cuántos CVs lee del ATS y así controlar el contexto.
 
 ## Herramientas disponibles
 - consultar_ats(job_description) -> dict

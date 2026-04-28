@@ -10,10 +10,15 @@ Cuando la integración real con Workday esté disponible (ver workday_api_servic
 solo este archivo cambia. El contrato de entrada/salida se mantiene idéntico,
 y el resto del sistema (cvs.py, agent.py, tests) no necesita modificaciones.
 """
+import logging
+
 from agentes.busquedas_internas.cvs import Buscar_candidatos_similares
+from agentes.config.settings import get_settings
 from schemas.busqueda_response import Busqueda_response
 from schemas.cvs_data import Cvs_data
 from schemas.JobDescriptionEstructurada import JobDescriptionEstructurada
+
+logger = logging.getLogger(__name__)
 
 
 def Consultar_ats(job_description: JobDescriptionEstructurada) -> dict:
@@ -45,13 +50,40 @@ def Consultar_ats(job_description: JobDescriptionEstructurada) -> dict:
                 "score_embedding": float # similitud semántica con la JD (0.0–1.0)
             }
     """
+    settings = get_settings()
+
     jd_texto = " ".join([
         job_description.role_title,
         job_description.role_description,
         job_description.management_level,
         " ".join(job_description.skills),
     ])
-    candidatos: list[Cvs_data] = Buscar_candidatos_similares(jd_texto, top_n=10)
+
+    # Si la JD trae un número explícito, lo usamos (clampeado al rango [1, MAX_TOP_N]).
+    # Si no, caemos al default seguro para el modelo configurado.
+    requested = job_description.cantidad_candidatos
+    if requested is None or requested <= 0:
+        top_n = settings.DEFAULT_TOP_N
+    else:
+        top_n = min(requested, settings.MAX_TOP_N)
+
+    logger.info(
+        "Consultar_ats | cantidad_candidatos=%s -> top_n=%s",
+        requested, top_n,
+    )
+
+    candidatos: list[Cvs_data] = Buscar_candidatos_similares(jd_texto, top_n=top_n)
+
+    # Truncar texto_cv para acotar el contexto que recibe el LLM downstream.
+    for cv in candidatos:
+        if cv.texto_cv and len(cv.texto_cv) > settings.MAX_CHARS_POR_CV:
+            cv.texto_cv = cv.texto_cv[:settings.MAX_CHARS_POR_CV] + "\n…[CV truncado]"
+
+    total_chars = sum(len(c.texto_cv or "") for c in candidatos)
+    logger.info(
+        "Consultar_ats | devolviendo %s candidatos, %s chars totales (~%s tokens)",
+        len(candidatos), total_chars, total_chars // 4,
+    )
 
     response = Busqueda_response(
         exito=bool(candidatos),

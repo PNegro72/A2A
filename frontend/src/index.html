@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <title>SAPE — Sistema Agéntico para Postulación y Entrevistas</title>
+  <base href="/">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="description" content="SAPE: sistema multi-agente de reclutamiento Accenture">
+  <meta name="theme-color" content="#A100FF">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="SAPE">
+  <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+
+  <!-- Script anti-flash: aplica el tema antes del primer render -->
+  <script>
+    (function() {
+      try {
+        var saved = localStorage.getItem('sape-theme');
+        var theme = 'light';
+        if (saved === 'dark') {
+          theme = 'dark';
+        } else if (saved === 'light') {
+          theme = 'light';
+        } else {
+          // 'system' o sin valor: respetar preferencia del sistema
+          if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+            theme = 'dark';
+          }
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+      } catch(e) {}
+    })();
+  </script>
+</head>
+<body>
+  <app-root></app-root>
+  <noscript>SAPE requiere JavaScript para funcionar. Por favor habilitalo en tu navegador.</noscript>
+</body>
+</html>

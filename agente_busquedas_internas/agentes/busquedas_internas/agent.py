@@ -9,6 +9,7 @@ import os
 
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
+from google.adk.models.lite_llm import LiteLlm
 
 from agentes.busquedas_internas.tools.consultar_ats import Consultar_ats
 from agentes.config.settings import get_settings
@@ -35,7 +36,7 @@ root_agent = LlmAgent(
         "Recibe una Job Description estructurada, busca candidatos internos en el ATS "
         "y los rankea con IA. Retorna un ResultadoRanking al orquestador."
     ),
-    model=settings.OPENAI_MODEL,
+    model=LiteLlm(model=f"openai/{settings.OPENAI_MODEL}"),
     instruction=_read_prompt("agent-prompt.txt"),
     tools=[Consultar_ats],
     output_schema=ResultadoRanking,

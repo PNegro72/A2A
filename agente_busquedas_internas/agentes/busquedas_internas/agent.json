@@ -1,6 +1,6 @@
 {
   "name": "busquedas_internas",
-  "url": "http://localhost:8000/a2a/busquedas_internas",
+  "url": "http://localhost:8002/a2a/busquedas_internas",
   "description": "Recibe una Job Description estructurada, busca candidatos internos en el ATS y los rankea con IA. Retorna un ResultadoRanking al orquestador.",
   "version": "1.0.0",
   "defaultInputModes": ["application/json", "text/plain"],

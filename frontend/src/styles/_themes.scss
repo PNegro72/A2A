@@ -1,0 +1,75 @@
+// Tema base (claro) — variables en :root para que el script inline pueda leerlas
+:root,
+[data-theme='light'] {
+  --color-primary:           #A100FF;
+  --color-primary-hover:     #7500C0;
+  --color-primary-soft:      #F3E5FF;
+  --color-primary-text:      #FFFFFF;
+
+  --color-bg:                #FFFFFF;
+  --color-surface:           #F7F7FA;
+  --color-surface-elevated:  #FFFFFF;
+  --color-surface-hover:     #EDEDF5;
+
+  --color-text:              #1A1A1A;
+  --color-text-muted:        #5A5A6E;
+  --color-text-disabled:     #ADADBE;
+
+  --color-border:            #E5E5EC;
+  --color-border-focus:      #A100FF;
+
+  --color-user-bubble:       #A100FF;
+  --color-user-bubble-text:  #FFFFFF;
+  --color-bot-bubble:        #F3E5FF;
+  --color-bot-bubble-text:   #1A1A1A;
+
+  --color-error:             #D7263D;
+  --color-error-soft:        #FEE8EC;
+  --color-success:           #00B37E;
+  --color-success-soft:      #D6F5EC;
+  --color-warning:           #F59E0B;
+
+  --color-scrollbar:         #D1D1DC;
+  --color-scrollbar-hover:   #A8A8BE;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.10);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.10), 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] {
+  --color-primary:           #C77DFF;
+  --color-primary-hover:     #E0B0FF;
+  --color-primary-soft:      #2A0F3D;
+  --color-primary-text:      #FFFFFF;
+
+  --color-bg:                #0F0B14;
+  --color-surface:           #1A1322;
+  --color-surface-elevated:  #221A2D;
+  --color-surface-hover:     #2E2440;
+
+  --color-text:              #F2F2F7;
+  --color-text-muted:        #A0A0B8;
+  --color-text-disabled:     #555570;
+
+  --color-border:            #2E2538;
+  --color-border-focus:      #C77DFF;
+
+  --color-user-bubble:       #A100FF;
+  --color-user-bubble-text:  #FFFFFF;
+  --color-bot-bubble:        #221A2D;
+  --color-bot-bubble-text:   #F2F2F7;
+
+  --color-error:             #FF6B81;
+  --color-error-soft:        #3D1020;
+  --color-success:           #34D399;
+  --color-success-soft:      #0A2E20;
+  --color-warning:           #FCD34D;
+
+  --color-scrollbar:         #3A2F50;
+  --color-scrollbar-hover:   #4D3D6B;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30), 0 1px 3px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.40), 0 4px 6px rgba(0, 0, 0, 0.30);
+}

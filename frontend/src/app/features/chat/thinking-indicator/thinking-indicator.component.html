@@ -1,0 +1,63 @@
+<!--
+  Indicador "Pensando..." que se muestra mientras el orchestrator procesa
+  un mensaje. Se expande/colapsa al hacer click para ver los pasos detallados
+  que va emitiendo el agente.
+
+  Estructura:
+    - Header siempre visible: avatar, "Pensando..." y el último paso activo.
+    - Lista colapsable de pasos: cada paso muestra su agente, status y mensaje.
+-->
+<div class="thinking" [class.expanded]="expanded()" (click)="toggle()" role="status" aria-live="polite">
+  <div class="thinking__header">
+    <div class="thinking__avatar">{{ config.agentAvatarInitials }}</div>
+
+    <!-- Resumen: "Pensando · <último paso>" -->
+    <div class="thinking__summary">
+      <span class="thinking__dots" aria-hidden="true">Pensando</span>
+      @if (lastStep()) {
+        <span class="thinking__active-step">· {{ lastStep()!.message }}</span>
+      }
+    </div>
+
+    @if (steps().length > 0) {
+      <!-- Botón chevron para expandir/colapsar la lista de pasos -->
+      <button
+        class="thinking__toggle-btn"
+        [attr.aria-expanded]="expanded()"
+        aria-label="Ver pasos del agente"
+        (click)="toggle(); $event.stopPropagation()"
+      >
+        <svg class="chevron" [class.rotated]="expanded()"
+          width="16" height="16" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+    }
+  </div>
+
+  @if (steps().length > 0) {
+    <!--
+      Wrapper con max-height controlado por código: animamos la expansión
+      pasando de 0 al alto estimado de los pasos (ver stepsHeight en el .ts).
+    -->
+    <div class="thinking__steps-wrapper" [style.max-height]="expanded() ? stepsHeight() : '0'">
+      <div class="thinking__steps" #stepsEl>
+        @for (step of steps(); track step.agent + step.timestamp) {
+          <div class="step" [ngClass]="'step--' + step.status">
+            <span class="step__icon" aria-hidden="true">
+              @if (step.status === 'done') { ✓ }
+              @else if (step.status === 'error') { ✗ }
+              @else {
+                <!-- status === 'running': spinner animado -->
+                <span class="step__spinner"></span>
+              }
+            </span>
+            <span class="step__agent">{{ step.agent }}</span>
+            <span class="step__message">{{ step.message }}</span>
+          </div>
+        }
+      </div>
+    </div>
+  }
+</div>

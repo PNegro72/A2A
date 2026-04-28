@@ -1,0 +1,284 @@
+@use '../../../../styles/tokens' as *;
+@use '../../../../styles/mixins' as mix;
+
+.sidebar {
+  position: relative;
+  z-index: $z-sidebar;
+
+  // En desktop: muestra el panel directamente
+  @include mix.md-up {
+    width: $sidebar-width;
+    flex-shrink: 0;
+  }
+
+  // En tablet/móvil: el panel es un drawer
+  @include mix.md {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+
+    &--open {
+      pointer-events: auto;
+
+      .sidebar__overlay {
+        opacity: 1;
+      }
+
+      .sidebar__panel {
+        transform: translateX(0);
+      }
+    }
+  }
+
+  &__overlay {
+    @include mix.md {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      opacity: 0;
+      @include mix.transition(opacity);
+    }
+
+    @include mix.md-up {
+      display: none;
+    }
+  }
+
+  &__panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border);
+    overflow: hidden;
+
+    @include mix.md {
+      position: fixed;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: $sidebar-width;
+      transform: translateX(-100%);
+      @include mix.transition(transform, 280ms);
+      box-shadow: var(--shadow-lg);
+      z-index: $z-sidebar + 1;
+    }
+  }
+
+  &__header {
+    @include mix.flex-between;
+    padding: $sp-4 $sp-4;
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+  }
+
+  &__brand {
+    font-size: $fs-md;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+  }
+
+  &__new-btn {
+    @include mix.button-reset;
+    @include mix.flex-center;
+    gap: $sp-1;
+    font-size: $fs-sm;
+    font-weight: 600;
+    color: var(--color-primary);
+    padding: $sp-1 $sp-2;
+    border-radius: $radius-sm;
+    @include mix.transition(background-color);
+    @include mix.focus-ring;
+
+    &:hover {
+      background-color: var(--color-primary-soft);
+    }
+  }
+
+  &__list {
+    flex: 1;
+    overflow-y: auto;
+    padding: $sp-2;
+    display: flex;
+    flex-direction: column;
+    gap: $sp-1;
+    @include mix.scrollbar;
+  }
+
+  &__empty {
+    font-size: $fs-sm;
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: $sp-6 $sp-4;
+  }
+}
+
+.conv-item {
+  position: relative;
+  border-radius: $radius-md;
+  @include mix.transition(background-color);
+
+  &:hover {
+    background: var(--color-surface-hover);
+
+    .conv-item__actions {
+      opacity: 1;
+    }
+  }
+
+  &--active {
+    background: var(--color-primary-soft);
+
+    .conv-item__btn {
+      color: var(--color-primary);
+    }
+  }
+
+  &__btn {
+    @include mix.button-reset;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    padding: $sp-2 $sp-3;
+    padding-right: $sp-12; // espacio para los botones de acción
+    text-align: left;
+    @include mix.focus-ring;
+    border-radius: $radius-md;
+  }
+
+  &__title {
+    font-size: $fs-sm;
+    font-weight: 500;
+    color: var(--color-text);
+    @include mix.truncate;
+    width: 100%;
+  }
+
+  &__time {
+    font-size: $fs-xs;
+    color: var(--color-text-muted);
+    margin-top: $sp-1;
+  }
+
+  &__actions {
+    position: absolute;
+    right: $sp-2;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    gap: $sp-1;
+    opacity: 0;
+    @include mix.transition(opacity);
+  }
+
+  &__action-btn {
+    @include mix.button-reset;
+    color: var(--color-text-muted);
+    padding: $sp-1;
+    border-radius: $radius-sm;
+    @include mix.transition(color);
+    @include mix.focus-ring;
+
+    &:hover {
+      color: var(--color-text);
+    }
+
+    &--delete:hover {
+      color: var(--color-error);
+    }
+  }
+}
+
+// Modal de renombre / confirmación de borrado
+.rename-modal {
+  position: fixed;
+  inset: 0;
+  z-index: $z-modal;
+  @include mix.flex-center;
+
+  &__backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  &__box {
+    position: relative;
+    background: var(--color-surface-elevated);
+    border: 1px solid var(--color-border);
+    border-radius: $radius-lg;
+    padding: $sp-6;
+    width: min(400px, 90vw);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    flex-direction: column;
+    gap: $sp-4;
+  }
+
+  &__title {
+    font-size: $fs-md;
+    font-weight: 600;
+    color: var(--color-text);
+  }
+
+  &__desc {
+    font-size: $fs-sm;
+    color: var(--color-text-muted);
+  }
+
+  &__input {
+    padding: $sp-2 $sp-3;
+    background: var(--color-bg);
+    border: 1.5px solid var(--color-border);
+    border-radius: $radius-md;
+    font-size: $fs-base;
+    font-family: $font-family;
+    color: var(--color-text);
+    @include mix.transition(border-color);
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-border-focus);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: $sp-2;
+  }
+
+  &__btn {
+    @include mix.button-reset;
+    padding: $sp-2 $sp-4;
+    border-radius: $radius-md;
+    font-size: $fs-sm;
+    font-weight: 600;
+    @include mix.transition(all);
+    @include mix.focus-ring;
+
+    &--cancel {
+      background: var(--color-surface);
+      color: var(--color-text);
+      border: 1px solid var(--color-border);
+
+      &:hover { background: var(--color-surface-hover); }
+    }
+
+    &--ok {
+      background: var(--color-primary);
+      color: white;
+
+      &:hover { background: var(--color-primary-hover); }
+    }
+
+    &--delete {
+      background: var(--color-error);
+      color: white;
+
+      &:hover { opacity: 0.85; }
+    }
+  }
+}

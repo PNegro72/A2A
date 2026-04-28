@@ -1,0 +1,106 @@
+<!--
+  Burbuja de un mensaje individual.
+  Se muestra distinto según:
+    - role: 'user' (alineada a la derecha) o 'assistant' (con avatar a la izquierda).
+    - status: 'sending' / 'done' / 'error' / 'cancelled'.
+
+  Los mensajes del bot con status='done' tienen botón de copiar.
+  Los mensajes con status='error' tienen botón de reintentar.
+-->
+<div
+  class="bubble-wrapper"
+  [class.bubble-wrapper--user]="message().role === 'user'"
+  [class.bubble-wrapper--bot]="message().role === 'assistant'"
+>
+  @if (message().role === 'assistant') {
+    <!-- Avatar del bot (solo en mensajes del asistente) -->
+    <div class="bubble__avatar" aria-hidden="true">{{ config.agentAvatarInitials }}</div>
+  }
+
+  <div class="bubble-content">
+    <div
+      class="bubble"
+      [class.bubble--user]="message().role === 'user'"
+      [class.bubble--bot]="message().role === 'assistant'"
+      [class.bubble--error]="message().status === 'error'"
+      [class.bubble--cancelled]="message().status === 'cancelled'"
+    >
+      @if (message().status === 'error') {
+        <!-- Estado error: muestra el mensaje de error con ícono de alerta -->
+        <div class="bubble__error-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          <span>{{ message().errorMessage ?? 'Error al procesar la respuesta' }}</span>
+        </div>
+      } @else if (message().status === 'cancelled') {
+        <!-- Estado cancelado: el usuario presionó "detener" -->
+        <span class="bubble__cancelled">Cancelado</span>
+      } @else {
+        <!-- Estado normal: contenido del mensaje -->
+        <p class="bubble__text">{{ message().content }}</p>
+      }
+
+      @if (message().role === 'assistant' && (message().status === 'done' || message().status === 'error')) {
+        <!-- Acciones disponibles solo en respuestas del bot ya finalizadas -->
+        <div class="bubble__actions">
+          @if (message().status === 'done') {
+            <!-- Botón copiar: cambia a "tilde" durante 1.5s al copiar exitosamente -->
+            <button
+              class="bubble__action-btn"
+              [class.copied]="copied()"
+              (click)="copyContent()"
+              [attr.aria-label]="copied() ? 'Copiado' : 'Copiar mensaje'"
+              title="Copiar"
+            >
+              @if (!copied()) {
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                </svg>
+              } @else {
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              }
+            </button>
+          }
+
+          @if (message().status === 'error') {
+            <!-- Botón reintentar: emite el evento para que el padre vuelva a llamar al orchestrator -->
+            <button
+              class="bubble__retry-btn"
+              (click)="retryClicked.emit()"
+              aria-label="Reintentar"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="1 4 1 10 7 10"/>
+                <path d="M3.51 15a9 9 0 1 0 .49-3.59"/>
+              </svg>
+              Reintentar
+            </button>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Metadata: emisor (solo en mensajes del usuario) y timestamp relativo -->
+    <div class="bubble__meta">
+      @if (message().role === 'user') {
+        <span class="bubble__sender">Vos</span>
+      }
+      <time
+        class="bubble__time"
+        [attr.datetime]="message().timestamp.toISOString()"
+        [title]="message().timestamp.toLocaleString('es-AR')"
+      >
+        {{ message().timestamp | relativeTime }}
+      </time>
+    </div>
+  </div>
+</div>

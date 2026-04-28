@@ -1,0 +1,171 @@
+@use '../../../../styles/tokens' as *;
+@use '../../../../styles/mixins' as mix;
+
+.bubble-wrapper {
+  display: flex;
+  align-items: flex-end;
+  gap: $sp-2;
+  animation: fade-in 200ms ease;
+
+  @keyframes fade-in {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  &--user {
+    flex-direction: row-reverse;
+  }
+
+  &--bot {
+    flex-direction: row;
+  }
+}
+
+.bubble__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-full;
+  background: var(--color-primary);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: $fs-sm;
+  font-weight: 700;
+  flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: 18px; // alinea con el tiempo
+}
+
+.bubble-content {
+  display: flex;
+  flex-direction: column;
+  max-width: 75%;
+  gap: $sp-1;
+
+  @include mix.sm {
+    max-width: 90%;
+  }
+}
+
+.bubble-wrapper--user .bubble-content {
+  align-items: flex-end;
+}
+
+.bubble-wrapper--bot .bubble-content {
+  align-items: flex-start;
+}
+
+.bubble {
+  position: relative;
+  padding: $sp-3 $sp-4;
+  border-radius: $radius-xl;
+  box-shadow: var(--shadow-sm);
+  word-break: break-word;
+  line-height: 1.6;
+
+  &--user {
+    background: var(--color-user-bubble);
+    color: var(--color-user-bubble-text);
+    border-bottom-right-radius: $radius-sm;
+  }
+
+  &--bot {
+    background: var(--color-bot-bubble);
+    color: var(--color-bot-bubble-text);
+    border-bottom-left-radius: $radius-sm;
+  }
+
+  &--error {
+    background: var(--color-error-soft);
+    border: 1px solid var(--color-error);
+  }
+
+  &--cancelled {
+    opacity: 0.6;
+  }
+
+  // Botones de acción — hover en desktop, siempre visible en móvil
+  &__actions {
+    display: flex;
+    gap: $sp-2;
+    margin-top: $sp-2;
+    opacity: 0;
+    transition: opacity $transition-base;
+
+    @include mix.sm {
+      opacity: 1;
+    }
+  }
+
+  &:hover .bubble__actions {
+    opacity: 1;
+  }
+
+  &__action-btn {
+    @include mix.button-reset;
+    color: var(--color-text-muted);
+    padding: $sp-1;
+    border-radius: $radius-sm;
+    @include mix.transition(color);
+    @include mix.focus-ring;
+
+    &:hover { color: var(--color-text); }
+
+    &.copied { color: var(--color-success); }
+  }
+
+  &__retry-btn {
+    @include mix.button-reset;
+    display: flex;
+    align-items: center;
+    gap: $sp-1;
+    font-size: $fs-xs;
+    color: var(--color-error);
+    padding: $sp-1 $sp-2;
+    border: 1px solid var(--color-error);
+    border-radius: $radius-sm;
+    @include mix.transition(background-color);
+    @include mix.focus-ring;
+
+    &:hover { background-color: var(--color-error-soft); }
+  }
+
+  &__error-badge {
+    display: flex;
+    align-items: flex-start;
+    gap: $sp-2;
+    font-size: $fs-sm;
+    color: var(--color-error);
+
+    svg { flex-shrink: 0; margin-top: 2px; }
+  }
+
+  &__cancelled {
+    font-size: $fs-sm;
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  &__text {
+    white-space: pre-wrap;
+    font-size: $fs-base;
+  }
+}
+
+.bubble__meta {
+  display: flex;
+  align-items: center;
+  gap: $sp-2;
+  font-size: $fs-xs;
+  color: var(--color-text-muted);
+  padding: 0 $sp-1;
+}
+
+.bubble__sender {
+  font-weight: 600;
+}
+
+.bubble__time {
+  cursor: default;
+}

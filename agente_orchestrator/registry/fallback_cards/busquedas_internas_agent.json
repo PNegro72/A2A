@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Searches Accenture's internal ATS (Workday) for candidates matching a structured Job Description. Reads each candidate's CV, extracts a structured profile, and returns a ranked list with AI-generated compatibility scores, skill gap analysis, and justifications.",
   "when_to_use": "When the user wants to search for internal candidates, rank current employees against a job description, or find the best internal profiles that match a given role. Always use this AFTER the job_description_agent has structured the JD.",
-  "webhook_url": "http://localhost:8000/a2a/busquedas_internas",
+  "webhook_url": "http://localhost:8002/a2a/busquedas_internas",
   "http_method": "POST",
   "actions": [
     {
@@ -14,7 +14,8 @@
         "role_title": "string — job title exactly as it appears in the JD",
         "role_description": "string — 3-4 sentence summary of responsibilities",
         "management_level": "Individual Contributor | Team Lead | Manager | Senior Manager | Director | Vice President",
-        "skills": ["skill1", "skill2", "..."]
+        "skills": ["skill1", "skill2", "..."],
+        "cantidad_candidatos": "integer or null — number of candidates the user explicitly asked for. Pass it through verbatim from the JD agent's output. null means 'use the agent's default'."
       },
       "possible_responses": [
         {

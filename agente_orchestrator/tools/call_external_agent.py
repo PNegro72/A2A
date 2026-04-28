@@ -8,6 +8,7 @@ No agent-specific logic lives here.
 """
 
 import logging
+import os
 
 import requests
 from requests.exceptions import ConnectionError, RequestException, Timeout
@@ -15,6 +16,11 @@ from requests.exceptions import ConnectionError, RequestException, Timeout
 from registry.loader import get_registry
 
 logger = logging.getLogger(__name__)
+
+# Timeout para llamadas HTTP a agentes downstream.
+# busquedas_internas puede tardar bastante (consulta ATS + ranking LLM con varios candidatos),
+# así que 120s es razonable. Override con env var AGENT_HTTP_TIMEOUT si hace falta.
+AGENT_HTTP_TIMEOUT = int(os.getenv("AGENT_HTTP_TIMEOUT", "120"))
 
 
 def call_external_agent(agent_name: str, payload: dict) -> dict:
@@ -67,19 +73,52 @@ def call_external_agent(agent_name: str, payload: dict) -> dict:
     logger.debug("Payload -> %s", payload)
 
     try:
-        response = requests.post(webhook_url, json=payload, timeout=30)
-        response.raise_for_status()
-        result = response.json()
+        response = requests.post(webhook_url, json=payload, timeout=AGENT_HTTP_TIMEOUT)
+        # No usamos raise_for_status() acá porque tira la excepción ANTES de leer el body
+        # y los agentes downstream devuelven JSON con `message` aún en 4xx/5xx.
+        # Queremos preservar ese mensaje para diagnosticar.
+        try:
+            result = response.json()
+        except ValueError:
+            logger.error(
+                "Agent '%s' returned non-JSON body (HTTP %s): %s",
+                agent_name, response.status_code, response.text[:500],
+            )
+            return {
+                "status": "error",
+                "code": "INVALID_JSON_RESPONSE",
+                "message": (
+                    f"Agent '{agent_name}' returned HTTP {response.status_code} "
+                    f"with non-JSON body: {response.text[:200]}"
+                ),
+            }
+
+        if response.status_code >= 400:
+            downstream_msg = result.get("message") if isinstance(result, dict) else None
+            logger.error(
+                "Agent '%s' returned HTTP %s | downstream message: %s",
+                agent_name, response.status_code, downstream_msg,
+            )
+            return {
+                "status": "error",
+                "code": "HTTP_ERROR",
+                "http_status": response.status_code,
+                "message": (
+                    f"Agent '{agent_name}' returned HTTP {response.status_code}. "
+                    f"Downstream said: {downstream_msg or '(no message)'}"
+                ),
+            }
+
         logger.info("Response from '%s' | status: %s", agent_name, result.get("status"))
         logger.debug("Response body <- %s", result)
         return result
 
     except Timeout:
-        logger.warning("Timeout calling agent '%s' (30s exceeded).", agent_name)
+        logger.warning("Timeout calling agent '%s' (%ss exceeded).", agent_name, AGENT_HTTP_TIMEOUT)
         return {
             "status": "error",
             "code": "NETWORK_ERROR",
-            "message": f"Request to '{agent_name}' timed out after 30 seconds.",
+            "message": f"Request to '{agent_name}' timed out after {AGENT_HTTP_TIMEOUT} seconds.",
         }
 
     except ConnectionError as exc:
@@ -88,25 +127,6 @@ def call_external_agent(agent_name: str, payload: dict) -> dict:
             "status": "error",
             "code": "NETWORK_ERROR",
             "message": f"Could not connect to agent '{agent_name}': {exc}",
-        }
-
-    except requests.HTTPError as exc:
-        status_code = (
-            exc.response.status_code if exc.response is not None else "unknown"
-        )
-        logger.warning("HTTP %s from agent '%s'.", status_code, agent_name)
-        return {
-            "status": "error",
-            "code": "HTTP_ERROR",
-            "message": f"Agent '{agent_name}' returned HTTP {status_code}: {exc}",
-        }
-
-    except (ValueError, KeyError) as exc:
-        logger.warning("Invalid JSON response from agent '%s': %s", agent_name, exc)
-        return {
-            "status": "error",
-            "code": "INVALID_JSON_RESPONSE",
-            "message": f"Agent '{agent_name}' returned a non-JSON response: {exc}",
         }
 
     except RequestException as exc:

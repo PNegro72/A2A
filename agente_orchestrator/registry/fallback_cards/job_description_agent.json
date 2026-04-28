@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Parses free-text Job Descriptions (in English or Spanish, well or poorly written, formal or informal) and returns a normalized JSON structure with the role title, a concise description, the management level, and a cleaned list of required skills. It is the mandatory first step of the recruiting flow before searching for internal candidates.",
   "when_to_use": "When the user provides a raw job description text and wants it parsed, structured, or normalized — or before passing a JD to busquedas_internas_agent. Always use this agent first when the input is free-text.",
-  "webhook_url": "http://localhost:8000/a2a/job_description",
+  "webhook_url": "http://localhost:8001/a2a/job_description",
   "http_method": "POST",
   "actions": [
     {
@@ -16,7 +16,7 @@
       "possible_responses": [
         {
           "status": "ok",
-          "fields": ["role_title", "role_description", "management_level", "skills"]
+          "fields": ["role_title", "role_description", "management_level", "skills", "cantidad_candidatos"]
         },
         {
           "status": "error",
@@ -29,6 +29,7 @@
     "management_levels": "Output is always exactly one of: 'Individual Contributor', 'Team Lead', 'Manager', 'Senior Manager', 'Director', 'Vice President'. When ambiguous, the agent picks the lower level.",
     "skills_format": "PascalCase for technologies and tools (e.g., 'Python', 'AWS', 'PostgreSQL'); lowercase in Spanish for soft skills (e.g., 'liderazgo', 'comunicación efectiva'). Duplicates are removed. Maximum 15 skills returned, prioritizing those explicitly mentioned in the text.",
     "role_title": "Uses the most formal and descriptive variant of the title found in the JD. Never shortens or paraphrases.",
+    "cantidad_candidatos": "Integer or null. Only set when the user EXPLICITLY mentions how many candidates they want (e.g., 'dame 1 candidato' → 1, 'necesito 3 perfiles' → 3, 'un candidato Python' → 1). null when the user does not specify a number. Never invented.",
     "state": "Stateless: single-request parsing with no side effects. No data is written or stored."
   }
 }

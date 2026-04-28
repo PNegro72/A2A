@@ -1,0 +1,94 @@
+<!--
+  Layout principal del chat.
+  - Sidebar de conversaciones a la izquierda (se oculta en mobile).
+  - Área principal con header, lista de mensajes e input.
+
+  El atributo data-sidebar-open sirve para que el SCSS aplique estilos
+  diferentes según la sidebar esté abierta o cerrada (sobre todo en mobile).
+-->
+<div class="chat-page" [attr.data-sidebar-open]="sidebarOpen()">
+
+  <!-- Sidebar lateral con la lista de conversaciones guardadas en localStorage -->
+  <app-conversation-sidebar
+    [conversations]="convService.conversations()"
+    [activeId]="convService.activeConversationId()"
+    [open]="sidebarOpen()"
+    (selectConversation)="selectConversation($event)"
+    (newConversation)="createNewConversation()"
+    (deleteConversation)="convService.deleteConversation($event)"
+    (renameConversation)="convService.renameConversation($event.id, $event.title)"
+    (closeSidebar)="sidebarOpen.set(false)"
+  />
+
+  <!-- Área principal del chat -->
+  <div class="chat-main">
+
+    <!-- Header con botón de menú (mobile), título del agente y toggle de tema -->
+    <header class="chat-header">
+      <button
+        class="chat-header__menu-btn"
+        (click)="toggleSidebar()"
+        aria-label="Abrir menú de conversaciones"
+        title="Conversaciones"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
+
+      <div class="chat-header__brand">
+        <h1 class="chat-header__title">{{ config.agentName }}</h1>
+        <p class="chat-header__subtitle">{{ config.agentTagline }}</p>
+      </div>
+
+      <div class="chat-header__actions">
+        <!-- Toggle de tema: cicla entre light → dark → system → light -->
+        <button
+          class="chat-header__theme-btn"
+          (click)="cycleTheme()"
+          [attr.aria-label]="'Tema: ' + themeService.mode()"
+          [title]="themeLabel()"
+        >
+          @if (themeService.resolvedTheme() === 'dark') {
+            <!-- Ícono luna cuando el tema resuelto es oscuro -->
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          } @else {
+            <!-- Ícono sol cuando el tema resuelto es claro -->
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+          }
+        </button>
+      </div>
+    </header>
+
+    <!-- Lista scrolleable de mensajes (incluye el indicador de "Pensando" cuando aplica) -->
+    <app-message-list
+      [messages]="currentMessages()"
+      [isThinking]="isThinking()"
+      [agentSteps]="agentSteps()"
+      (retryClicked)="retry()"
+    />
+
+    <!-- Input fijo abajo: textarea + botón enviar/detener -->
+    <app-chat-input
+      [isThinking]="isThinking()"
+      (messageSent)="sendMessage($event)"
+      (stopClicked)="stopResponse()"
+    />
+
+  </div>
+</div>

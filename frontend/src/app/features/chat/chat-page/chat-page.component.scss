@@ -1,0 +1,107 @@
+@use '../../../../styles/tokens' as *;
+@use '../../../../styles/mixins' as mix;
+
+:host {
+  display: block;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.chat-page {
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.chat-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  background: var(--color-bg);
+  min-width: 0;
+}
+
+// Header
+.chat-header {
+  @include mix.flex-between;
+  padding: $sp-3 $sp-4;
+  background: var(--color-surface-elevated);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
+
+  &__menu-btn {
+    @include mix.button-reset;
+    color: var(--color-text-muted);
+    padding: $sp-2;
+    border-radius: $radius-sm;
+    @include mix.transition(color);
+    @include mix.focus-ring;
+
+    &:hover { color: var(--color-text); }
+
+    // En desktop ocultar el botón de menú
+    @include mix.md-up {
+      display: none;
+    }
+  }
+
+  &__brand {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    line-height: 1.1;
+    min-width: 0;
+    flex: 1;
+  }
+
+  &__title {
+    font-size: $fs-md;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+
+    @include mix.md-up {
+      font-size: $fs-lg;
+    }
+  }
+
+  &__subtitle {
+    font-size: $fs-xs;
+    font-weight: 400;
+    color: var(--color-text-muted);
+    letter-spacing: 0;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: $sp-2;
+  }
+
+  &__theme-btn {
+    @include mix.button-reset;
+    color: var(--color-text-muted);
+    padding: $sp-2;
+    border-radius: $radius-sm;
+    @include mix.transition(all);
+    @include mix.focus-ring;
+
+    &:hover {
+      color: var(--color-primary);
+      background: var(--color-primary-soft);
+    }
+  }
+}
+
+// En desktop el botón de menú se muestra igual para poder colapsar sidebar
+@include mix.md-up {
+  .chat-header__menu-btn {
+    display: flex; // lo mostramos para poder toggle el sidebar
+  }
+}

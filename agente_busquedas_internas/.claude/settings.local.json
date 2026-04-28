@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(.\\\\.venv\\\\Scripts\\\\python.exe -m pytest tests/ --collect-only -v)",
-      "PowerShell(py *)"
+      "PowerShell(py *)",
+      "Bash(c:/a2a/agente_busquedas_internas/.venv/Scripts/python.exe c:/a2a/agente_busquedas_internas/server.py)",
+      "Bash(c:/a2a/agente_busquedas_internas/.venv/Scripts/pip.exe list *)",
+      "Bash(c:/a2a/agente_busquedas_internas/.venv/Scripts/python.exe *)",
+      "Bash(c:/a2a/agente_busquedas_internas/.venv/Scripts/pip.exe show *)",
+      "Bash(c:/a2a/agente_busquedas_internas/.venv/Scripts/pip.exe --version)",
+      "Bash(c:/a2a/agente_busquedas_internas/.venv/Scripts/pip.exe install *)",
+      "Bash(tee c:/a2a/agente_busquedas_internas/_broken_list.txt)"
     ]
   }
 }

@@ -1,0 +1,94 @@
+@use 'tokens' as *;
+
+// Breakpoints responsive
+@mixin xs { @media (max-width: #{$bp-xs - 1}) { @content; } }
+@mixin sm { @media (max-width: #{$bp-sm - 1}) { @content; } }
+@mixin md { @media (max-width: #{$bp-md - 1}) { @content; } }
+@mixin md-up { @media (min-width: $bp-md) { @content; } }
+@mixin lg-up { @media (min-width: $bp-lg) { @content; } }
+
+// Tipografía
+@mixin text($size, $weight: 400, $line-height: 1.5) {
+  font-size: $size;
+  font-weight: $weight;
+  line-height: $line-height;
+}
+
+// Truncar texto en una línea
+@mixin truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Foco visible accesible
+@mixin focus-ring($color: var(--color-border-focus), $offset: 2px) {
+  &:focus-visible {
+    outline: 2px solid $color;
+    outline-offset: $offset;
+    border-radius: inherit;
+  }
+}
+
+// Superficie elevada
+@mixin surface($elevated: false) {
+  background-color: if($elevated, var(--color-surface-elevated), var(--color-surface));
+  border: 1px solid var(--color-border);
+}
+
+// Botón base
+@mixin button-reset {
+  appearance: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  line-height: 1;
+}
+
+// Scrollbar estilizado
+@mixin scrollbar($width: 6px) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar) transparent;
+
+  &::-webkit-scrollbar {
+    width: $width;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--color-scrollbar);
+    border-radius: $radius-full;
+
+    &:hover {
+      background-color: var(--color-scrollbar-hover);
+    }
+  }
+}
+
+// Flex helpers
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+@mixin flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// Transición estándar
+@mixin transition($props: all, $duration: 200ms, $easing: ease) {
+  transition: #{$props} $duration $easing;
+}
+
+// Safe area bottom (para móvil)
+@mixin safe-area-bottom($property: padding-bottom, $extra: 0px) {
+  #{$property}: calc(env(safe-area-inset-bottom) + #{$extra});
+}

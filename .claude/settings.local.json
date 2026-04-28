@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npx @angular/cli@latest version)",
+      "Bash(ng version *)",
+      "Bash(npm list *)",
+      "Bash(npx *)",
+      "Bash(npm start *)",
+      "Bash(pkill -f \"ng serve\")",
+      "Bash(python -m adk --version)",
+      "Bash(/c/a2a/agente_busquedas_internas/.venv/Scripts/python.exe --version)",
+      "PowerShell(C:\\\\a2a\\\\agente_busquedas_internas\\\\.venv\\\\Scripts\\\\python.exe --version)",
+      "PowerShell(Get-Command *)",
+      "PowerShell(head *)",
+      "Bash(/c/Users/nicolas.bulfon/AppData/Local/Python/bin/python.exe -m google.adk --help)",
+      "Bash(/c/Users/nicolas.bulfon/AppData/Local/Python/pythoncore-3.14-64/Scripts/adk.exe web *)",
+      "Bash(/c/Users/nicolas.bulfon/AppData/Local/Python/pythoncore-3.14-64/bin/python3.14.exe -c 'import sentence_transformers; print\\('\\\\''sentence_transformers OK'\\\\''\\)')",
+      "Bash(/c/Users/nicolas.bulfon/AppData/Local/Python/pythoncore-3.14-64/bin/python3.14.exe -c 'import google.adk; print\\('\\\\''adk OK'\\\\''\\)')",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); [print\\(k\\) for k in d.get\\('paths',{}\\).keys\\(\\)]\")",
+      "PowerShell(Invoke-RestMethod -Uri \"http://localhost:8001/list-apps\" | ConvertTo-Json)",
+      "Bash(requirements)",
+      "Bash(pyproject\")",
+      "PowerShell(Get-Command node -ErrorAction SilentlyContinue; Get-Command npm -ErrorAction SilentlyContinue; Get-Command npx -ErrorAction SilentlyContinue; Write-Host \"---\"; Write-Host \"PATH:\"; $env:PATH -split ';' | Where-Object { $_ -match 'node|npm' })"
+    ]
+  }
+}

@@ -11,6 +11,7 @@ import os
 
 from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
+from google.adk.models.lite_llm import LiteLlm
 
 from agentes.config.settings import get_settings
 from schemas import JobDescriptionEstructurada
@@ -33,7 +34,7 @@ root_agent = LlmAgent(
         "Parsea Job Descriptions en texto libre y las estructura en JSON. "
         "Extrae título del rol, descripción, nivel de management y skills requeridas."
     ),
-    model=settings.OPENAI_MODEL,
+    model=LiteLlm(model=f"openai/{settings.OPENAI_MODEL}"),
     instruction=_read_prompt("agent-prompt.txt"),
     output_schema=JobDescriptionEstructurada,
 )
