@@ -40,7 +40,7 @@ def crear_borrador_email(
             "draft_id": None,
         }
  
-    sender  = remitente_email or os.environ.get("MS_SENDER_EMAIL", "hello@demomailtrap.co")
+    sender  = remitente_email or os.environ["MS_SENDER_EMAIL"]
     subject = asunto or f"Oportunidad laboral: {proceso_titulo}"
  
     content_type = "html" if cuerpo_email.strip().startswith("<") else "plain"

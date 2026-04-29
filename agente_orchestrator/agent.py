@@ -17,6 +17,7 @@ import os
 from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
+from dotenv import load_dotenv
 from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
 
@@ -24,11 +25,15 @@ from prompts.orchestrator import build_system_instruction
 from registry.loader import get_registry_summary_for_prompt, load_registry
 from tools.call_external_agent import call_external_agent
 
+# Cargar .env explícitamente: agent.py puede importarse desde adk web / notebook
+# sin pasar por server.py, que es donde normalmente se hace load_dotenv().
+load_dotenv()
+
 # --- Startup: load registry and build system instruction ---
 
 _registry = load_registry()
 _now_utc_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-_tz_name = os.getenv("DEFAULT_TIMEZONE", "America/Argentina/Buenos_Aires")
+_tz_name = os.environ["DEFAULT_TIMEZONE"]
 _now_local_iso = datetime.now(ZoneInfo(_tz_name)).strftime("%Y-%m-%dT%H:%M:%S")
 _registry_summary = get_registry_summary_for_prompt(_registry)
 _instruction = build_system_instruction(_registry_summary, _now_utc_iso, _tz_name, _now_local_iso)
@@ -37,7 +42,7 @@ _instruction = build_system_instruction(_registry_summary, _now_utc_iso, _tz_nam
 
 root_agent = LlmAgent(
     name="recruiting_orchestrator",
-    model=LiteLlm(model="openai/gpt-4o-mini"),
+    model=LiteLlm(model=f"openai/{os.environ['OPENAI_MODEL']}"),
     description=(
         "Recruiting orchestrator. Delegates tasks to specialized agents "
         "via HTTP, driven by dynamically loaded agent cards."

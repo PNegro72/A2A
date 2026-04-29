@@ -1,5 +1,5 @@
 """
-Agente Entrevistas — Google ADK + Claude Haiku
+Agente Entrevistas — Google ADK + OpenAI (vía LiteLLM)
 Invocado como AgentTool desde el Orquestador principal.
 
 Responsabilidades:
@@ -22,10 +22,12 @@ from agente_entrevistas.tools.guardar_resultado import guardar_resultado
 from agente_entrevistas.tools.redactar_email import redactar_email
 from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
 from agente_entrevistas.prompts.system_prompt import SYSTEM_PROMPT
+from agente_entrevistas.utils.config import OPENAI_MODEL
 
-# LiteLLM enruta a Claude via la API de Anthropic.
-# Requiere ANTHROPIC_API_KEY en el .env
-MODEL = LiteLlm(model="anthropic/claude-haiku-4-5")
+# LiteLLM enruta a OpenAI. Requiere OPENAI_API_KEY en el .env.
+# El modelo se configura con OPENAI_MODEL (default: gpt-4o-mini),
+# alineado con los demás agentes del repo.
+MODEL = LiteLlm(model=f"openai/{OPENAI_MODEL}")
 
 agente_entrevistas = Agent(
     name="agente_entrevistas",

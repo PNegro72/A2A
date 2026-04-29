@@ -20,8 +20,16 @@ def require_env(key: str) -> str:
     return val
 
 
-# ── Requeridas ────────────────────────────────────────────────────────────────
-GOOGLE_API_KEY       = require_env("GOOGLE_API_KEY")
+# ── LLM (OpenAI vía LiteLLM, mismo patrón que el resto de los agentes) ───────
+OPENAI_API_KEY = require_env("OPENAI_API_KEY")
+OPENAI_MODEL   = require_env("OPENAI_MODEL")
+
+# ── Server (FastAPI / uvicorn) ───────────────────────────────────────────────
+HOST      = require_env("HOST")
+PORT      = int(require_env("PORT"))
+LOG_LEVEL = require_env("LOG_LEVEL")
+
+# ── Supabase ──────────────────────────────────────────────────────────────────
 SUPABASE_URL         = require_env("SUPABASE_URL")
 SUPABASE_SERVICE_KEY = require_env("SUPABASE_SERVICE_KEY")
 
@@ -36,5 +44,5 @@ TAVILY_API_KEY = os.environ.get("TAVILY_API_KEY")
 SERPER_API_KEY = os.environ.get("SERPER_API_KEY")
 
 # ── Rutas de output ───────────────────────────────────────────────────────────
-OUTPUT_DIR = Path(os.environ.get("KIT_OUTPUT_DIR", "./output/kits"))
+OUTPUT_DIR = Path(require_env("KIT_OUTPUT_DIR"))
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)

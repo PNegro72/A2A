@@ -1,18 +1,21 @@
 """
 Tool: generar_preguntas
-Genera preguntas de entrevista personalizadas usando Claude Haiku con structured output.
+Genera preguntas de entrevista personalizadas usando OpenAI con structured output.
 """
 
 import os
 import json
-import anthropic
-from agente_entrevistas.models.schemas import Pregunta, PreguntasOutput
+from openai import OpenAI
+
+from agente_entrevistas.models.schemas import PreguntasOutput
 
 
 def _get_client():
-    return anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    return OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
-_MODEL  = "claude-haiku-4-5"
+
+def _get_model() -> str:
+    return os.environ["OPENAI_MODEL"]
 
 
 def generar_preguntas(
@@ -95,26 +98,21 @@ Responde UNICAMENTE con un JSON valido, sin texto adicional, con esta estructura
   "duracion_estimada_min": <suma de tiempos>
 }}"""
 
+    raw = ""
     try:
-        response = _get_client().messages.create(
-            model=_MODEL,
+        response = _get_client().chat.completions.create(
+            model=_get_model(),
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"},
         )
-        raw = response.content[0].text.strip()
-
-        # Limpiar posibles markdown fences
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        raw = raw.strip()
+        raw = (response.choices[0].message.content or "").strip()
 
         data   = json.loads(raw)
         output = PreguntasOutput(**data)
         return output.model_dump()
 
     except json.JSONDecodeError as e:
-        return {"error": f"Error parseando JSON: {e}", "raw": raw if "raw" in dir() else ""}
+        return {"error": f"Error parseando JSON: {e}", "raw": raw}
     except Exception as e:
-        return {"error": f"Error llamando a Claude: {e}"}
+        return {"error": f"Error llamando a OpenAI: {e}"}

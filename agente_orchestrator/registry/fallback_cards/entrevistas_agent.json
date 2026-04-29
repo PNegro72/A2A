@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Prepares a complete interview kit for a given candidate. Reads the candidate profile from Supabase, searches for public information (LinkedIn, GitHub, previous employers), generates personalized technical and behavioral questions specific to the candidate's background, produces a Word document kit, saves the result to Supabase, and optionally creates a draft contact email in Outlook.",
   "when_to_use": "When the user wants to prepare an interview for a specific candidate: generate tailored interview questions, produce the interview kit document, or draft a contact email to the candidate about the open position.",
-  "webhook_url": "http://localhost:8000/a2a/entrevistas",
+  "webhook_url": "http://localhost:8003/a2a/entrevistas",
   "http_method": "POST",
   "actions": [
     {

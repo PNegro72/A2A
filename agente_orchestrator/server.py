@@ -7,12 +7,13 @@ Expone los endpoints que el frontend PWA espera:
 
 Cómo correr:
     python server.py
-    # Escucha en http://localhost:8000
+    # Escucha en http://${HOST}:${PORT} (definidos en .env)
 """
 
 import asyncio
 import json
 import logging
+import os
 import sys
 import uuid
 from contextlib import asynccontextmanager
@@ -71,7 +72,7 @@ async def lifespan(app: FastAPI):
         app_name=APP_NAME,
         session_service=session_service,
     )
-    logger.info("Orchestrator listo → http://localhost:8000")
+    logger.info("Orchestrator listo → http://%s:%s", os.environ["HOST"], os.environ["PORT"])
     yield
 
 
@@ -80,13 +81,10 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 app = FastAPI(title="Recruiting Orchestrator", version="1.0.0", lifespan=lifespan)
 
+_cors_origins = [o.strip() for o in os.environ["CORS_ALLOWED_ORIGINS"].split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:4200",
-        "http://127.0.0.1:4200",
-        "http://localhost:4201",
-    ],
+    allow_origins=_cors_origins,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -271,4 +269,9 @@ def health() -> dict:
 
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")
+    uvicorn.run(
+        app,
+        host=os.environ["HOST"],
+        port=int(os.environ["PORT"]),
+        log_level=os.environ["LOG_LEVEL"],
+    )

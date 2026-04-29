@@ -18,9 +18,9 @@ from registry.loader import get_registry
 logger = logging.getLogger(__name__)
 
 # Timeout para llamadas HTTP a agentes downstream.
-# busquedas_internas puede tardar bastante (consulta ATS + ranking LLM con varios candidatos),
-# así que 120s es razonable. Override con env var AGENT_HTTP_TIMEOUT si hace falta.
-AGENT_HTTP_TIMEOUT = int(os.getenv("AGENT_HTTP_TIMEOUT", "120"))
+# busquedas_internas puede tardar bastante (consulta ATS + ranking LLM con varios candidatos)
+# — por eso este valor vive en .env y suele ser >= 120s.
+AGENT_HTTP_TIMEOUT = int(os.environ["AGENT_HTTP_TIMEOUT"])
 
 
 def call_external_agent(agent_name: str, payload: dict) -> dict:
