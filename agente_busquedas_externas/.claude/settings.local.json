@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/juan.daza/**)",
+      "Bash(ls -la .claude/skills/)",
+      "Bash(engram search:*)",
+      "Bash(python -m json.tool)",
+      "Bash(engram context:*)",
+      "Bash(engram save:*)",
+      "WebSearch",
+      "WebFetch(domain:google.github.io)",
+      "WebFetch(domain:adk.dev)",
+      "Bash(npx --version)",
+      "Bash(uv --version)",
+      "WebFetch(domain:himalayas.app)",
+      "Bash(python -c \"import google.adk; print\\(google.adk.__version__\\)\")",
+      "Bash(python -c \"from google.adk.agents import LlmAgent; print\\('LlmAgent ok'\\)\")",
+      "Bash(python -c \"from google.adk.tools.mcp_tool.mcp_toolset import McpToolset, SseServerParams; print\\('McpToolset ok'\\)\")",
+      "Bash(python -c \" from google.adk.tools.mcp_tool.mcp_toolset import McpToolset, SseConnectionParams, StdioConnectionParams from google.adk.agents import LlmAgent from google.adk.tools import FunctionTool import inspect sig = inspect.signature\\(LlmAgent.__init__\\) print\\('LlmAgent params:', list\\(sig.parameters.keys\\(\\)\\)\\) \")",
+      "Bash(python -c \" from google.adk.agents import LlmAgent a = LlmAgent\\(name='test', model='gemini-2.0-flash', instruction='test', output_key='foo'\\) print\\('name:', a.name\\) print\\('output_key:', a.output_key\\) print\\('model:', a.model\\) \")",
+      "Bash(python -c \" from google.adk.tools import FunctionTool import inspect print\\(inspect.signature\\(FunctionTool.__init__\\)\\) \")",
+      "Bash(python -c \" from google.adk.tools.mcp_tool.mcp_toolset import McpToolset, SseConnectionParams import inspect sig = inspect.signature\\(McpToolset.__init__\\) print\\('McpToolset params:', list\\(sig.parameters.keys\\(\\)\\)\\) \")",
+      "Bash(python -c \" from google.adk.agents import SequentialAgent, ParallelAgent import inspect print\\('SequentialAgent params:', list\\(inspect.signature\\(SequentialAgent.__init__\\).parameters.keys\\(\\)\\)\\) print\\('ParallelAgent params:', list\\(inspect.signature\\(ParallelAgent.__init__\\).parameters.keys\\(\\)\\)\\) \")",
+      "Bash(python -c \" import google.adk.a2a print\\(dir\\(google.adk.a2a\\)\\) \")",
+      "Bash(python -c \" import pkgutil, google.adk for imp, name, ispkg in pkgutil.walk_packages\\(google.adk.__path__, google.adk.__name__+'.'\\): if 'a2a' in name.lower\\(\\) and \\('to_a2a' in name.lower\\(\\) or 'server' in name.lower\\(\\) or 'app' in name.lower\\(\\)\\): print\\(name\\) \")",
+      "Bash(python -c \" from google.adk.a2a.utils.agent_to_a2a import to_a2a import inspect print\\(inspect.signature\\(to_a2a\\)\\) \")",
+      "Bash(python:*)",
+      "Bash(pip show:*)",
+      "Bash(pip index:*)"
+    ]
+  }
+}
