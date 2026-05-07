@@ -5,7 +5,7 @@ Expone POST /a2a/entrevistas aceptando el payload JSON plano que envía
 el orchestrator (ej: {"action": "preparar_entrevista", "candidato_id": "...",
 "proceso_id": "...", "enviar_email": false}) y retorna el output del agente ADK.
 
-Lee toda la configuración del .env (HOST, PORT, LOG_LEVEL, OPENAI_*, SUPABASE_*,
+Lee toda la configuración del .env (HOST, PORT, LOG_LEVEL, CLAUDE_*, SUPABASE_*,
 MS_*, KIT_OUTPUT_DIR, TAVILY_API_KEY/SERPER_API_KEY). Si alguna variable falta,
 el agente falla al arrancar (fail-fast en utils/config.py).
 

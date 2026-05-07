@@ -20,9 +20,9 @@ def require_env(key: str) -> str:
     return val
 
 
-# ── LLM (OpenAI vía LiteLLM, mismo patrón que el resto de los agentes) ───────
-OPENAI_API_KEY = require_env("OPENAI_API_KEY")
-OPENAI_MODEL   = require_env("OPENAI_MODEL")
+# ── LLM (Claude vía LiteLLM, mismo patrón que el resto de los agentes) ───────
+CLAUDE_API_KEY = require_env("CLAUDE_API_KEY")
+CLAUDE_MODEL   = require_env("CLAUDE_MODEL")
 
 # ── Server (FastAPI / uvicorn) ───────────────────────────────────────────────
 HOST      = require_env("HOST")

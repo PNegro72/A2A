@@ -1,21 +1,31 @@
 """
 Tool: generar_preguntas
-Genera preguntas de entrevista personalizadas usando OpenAI con structured output.
+Genera preguntas de entrevista personalizadas usando Claude con structured output.
 """
 
 import os
 import json
-from openai import OpenAI
+import re
+from anthropic import Anthropic
 
 from agente_entrevistas.models.schemas import PreguntasOutput
 
 
 def _get_client():
-    return OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    return Anthropic(api_key=os.environ["CLAUDE_API_KEY"])
 
 
 def _get_model() -> str:
-    return os.environ["OPENAI_MODEL"]
+    return os.environ["CLAUDE_MODEL"]
+
+
+def _extract_json(raw: str) -> str:
+    """Claude a veces envuelve el JSON con ```json ... ```; lo limpiamos."""
+    raw = raw.strip()
+    fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", raw, re.DOTALL)
+    if fence:
+        return fence.group(1).strip()
+    return raw
 
 
 def generar_preguntas(
@@ -100,19 +110,18 @@ Responde UNICAMENTE con un JSON valido, sin texto adicional, con esta estructura
 
     raw = ""
     try:
-        response = _get_client().chat.completions.create(
+        response = _get_client().messages.create(
             model=_get_model(),
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
         )
-        raw = (response.choices[0].message.content or "").strip()
+        raw = (response.content[0].text or "").strip()
 
-        data   = json.loads(raw)
+        data   = json.loads(_extract_json(raw))
         output = PreguntasOutput(**data)
         return output.model_dump()
 
     except json.JSONDecodeError as e:
         return {"error": f"Error parseando JSON: {e}", "raw": raw}
     except Exception as e:
-        return {"error": f"Error llamando a OpenAI: {e}"}
+        return {"error": f"Error llamando a Claude: {e}"}

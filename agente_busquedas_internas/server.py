@@ -4,7 +4,7 @@ Servidor HTTP para el agente busquedas_internas.
 Expone POST /a2a/busquedas_internas aceptando el payload JSON plano
 que envía el orchestrator y retorna el ResultadoRanking del agente ADK.
 
-Requiere OPENAI_API_KEY en .env. Host y puerto se configuran via
+Requiere CLAUDE_API_KEY en .env. Host y puerto se configuran via
 HOST y PORT (ver agentes/config/settings.py).
 
 Correr con:

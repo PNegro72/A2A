@@ -40,9 +40,11 @@ _instruction = build_system_instruction(_registry_summary, _now_utc_iso, _tz_nam
 
 # --- Agent definition ---
 
+os.environ["ANTHROPIC_API_KEY"] = os.environ["CLAUDE_API_KEY"]
+
 root_agent = LlmAgent(
     name="recruiting_orchestrator",
-    model=LiteLlm(model=f"openai/{os.environ['OPENAI_MODEL']}"),
+    model=LiteLlm(model=f"anthropic/{os.environ['CLAUDE_MODEL']}"),
     description=(
         "Recruiting orchestrator. Delegates tasks to specialized agents "
         "via HTTP, driven by dynamically loaded agent cards."

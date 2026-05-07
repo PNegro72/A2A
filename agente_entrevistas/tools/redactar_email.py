@@ -1,18 +1,18 @@
 """
 Tool: redactar_email
-Genera el cuerpo del email para el candidato usando OpenAI.
+Genera el cuerpo del email para el candidato usando Claude.
 """
 
 import os
-from openai import OpenAI
+from anthropic import Anthropic
 
 
 def _get_client():
-    return OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    return Anthropic(api_key=os.environ["CLAUDE_API_KEY"])
 
 
 def _get_model() -> str:
-    return os.environ["OPENAI_MODEL"]
+    return os.environ["CLAUDE_MODEL"]
 
 
 def redactar_email(
@@ -67,14 +67,14 @@ Instrucciones:
 Devuelve SOLO el cuerpo del email en texto plano, sin ningun comentario adicional."""
 
     try:
-        response = _get_client().chat.completions.create(
+        response = _get_client().messages.create(
             model=_get_model(),
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
-        cuerpo_texto = (response.choices[0].message.content or "").strip()
+        cuerpo_texto = (response.content[0].text or "").strip()
     except Exception as e:
-        return {"error": f"Error generando email con OpenAI: {e}"}
+        return {"error": f"Error generando email con Claude: {e}"}
 
     parrafos    = [p.strip() for p in cuerpo_texto.split("\n\n") if p.strip()]
     cuerpo_html = "\n".join(f"<p>{p.replace(chr(10), '<br>')}</p>" for p in parrafos)

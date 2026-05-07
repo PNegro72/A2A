@@ -1,11 +1,12 @@
 """
-Agente Job Description — ADK LlmAgent.
+Agente Redactor de Job Descriptions — ADK LlmAgent.
 
-Recibe un Job Description en texto libre y devuelve un JSON estructurado
-(JobDescriptionEstructurada) usando Claude vía output_schema de ADK.
+Recibe una request corta del usuario (una oración o frase) y devuelve una JD
+completa, bien estructurada, en formato JobDescriptionRedactada usando Claude
+vía output_schema de ADK.
 
-ADK gestiona la llamada al modelo, el parseo del JSON y la validación Pydantic.
-El modelo Claude se accede a través del backend LiteLLM integrado en ADK.
+Detecta automáticamente el idioma (es/en) de la request y genera la JD
+en ese mismo idioma. También parsea cantidad_candidatos si se menciona.
 """
 import os
 
@@ -14,7 +15,7 @@ from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
 
 from agentes.config.settings import get_settings
-from schemas import JobDescriptionEstructurada
+from schemas import JobDescriptionRedactada
 
 load_dotenv()
 
@@ -30,12 +31,13 @@ settings = get_settings()
 os.environ["ANTHROPIC_API_KEY"] = settings.CLAUDE_API_KEY
 
 root_agent = LlmAgent(
-    name="job_description",
+    name="redactar_jd",
     description=(
-        "Parsea Job Descriptions en texto libre y las estructura en JSON. "
-        "Extrae título del rol, descripción, nivel de management y skills requeridas."
+        "Genera una Job Description completa y estructurada a partir de una "
+        "request corta del usuario. Detecta el idioma automáticamente y "
+        "extrae la cantidad de candidatos si se menciona."
     ),
     model=LiteLlm(model=f"anthropic/{settings.CLAUDE_MODEL}"),
     instruction=_read_prompt("agent-prompt.txt"),
-    output_schema=JobDescriptionEstructurada,
+    output_schema=JobDescriptionRedactada,
 )

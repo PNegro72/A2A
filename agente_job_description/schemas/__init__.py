@@ -1,3 +1,4 @@
 from schemas.JobDescriptionEstructurada import JobDescriptionEstructurada
+from schemas.JobDescriptionRedactada import JobDescriptionRedactada
 
-__all__ = ["JobDescriptionEstructurada"]
+__all__ = ["JobDescriptionEstructurada", "JobDescriptionRedactada"]
