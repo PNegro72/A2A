@@ -1,18 +1,16 @@
 """
 Tool: redactar_email
-Genera el cuerpo del email para el candidato usando OpenAI.
+Genera el cuerpo del email para el candidato usando Claude Haiku.
 """
 
 import os
-from openai import OpenAI
+import anthropic
 
 
 def _get_client():
-    return OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    return anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-
-def _get_model() -> str:
-    return os.environ["OPENAI_MODEL"]
+_MODEL = "claude-haiku-4-5"
 
 
 def redactar_email(
@@ -24,23 +22,6 @@ def redactar_email(
     tono: str = "profesional y calido",
     info_adicional: str | None = None,
 ) -> dict:
-    """
-    Genera el cuerpo de un email para contactar a un candidato sobre
-    una busqueda abierta. El email es personalizado y no revela datos
-    confidenciales. Cierra con un CTA claro (responder si hay interes).
-
-    Args:
-        candidato_nombre: Nombre del candidato para personalizar el saludo.
-        proceso_titulo: Titulo del rol/posicion.
-        skills_clave: Lista de 2-4 skills relevantes para mencionar.
-        empresa_nombre: Nombre de la empresa (opcional).
-        idioma: Idioma del email. Default "espanol".
-        tono: Tono del email. Default "profesional y calido".
-        info_adicional: Detalles extra (modalidad, ubicacion, etc.).
-
-    Returns:
-        Dict con el cuerpo del email en texto plano y HTML, y el asunto sugerido.
-    """
     empresa_str = f"en {empresa_nombre}" if empresa_nombre else "en nuestra organizacion"
     skills_str  = ", ".join(skills_clave[:4]) if skills_clave else "tu perfil"
     info_str    = f"\nInformacion adicional a incluir: {info_adicional}" if info_adicional else ""
@@ -57,7 +38,7 @@ Datos:
 
 Instrucciones:
 - Saludo personalizado con el nombre del candidato
-- Menciona brevemente por que su perfil es interesante (usa los skills como referencia)
+- Menciona brevemente por que su perfil es interesante
 - Describe la oportunidad en 2-3 oraciones sin revelar datos confidenciales
 - Cierra con un CTA claro: pidele que responda este email si le interesa saber mas
 - Firma como "El equipo de Talent Acquisition"
@@ -67,14 +48,14 @@ Instrucciones:
 Devuelve SOLO el cuerpo del email en texto plano, sin ningun comentario adicional."""
 
     try:
-        response = _get_client().chat.completions.create(
-            model=_get_model(),
+        response = _get_client().messages.create(
+            model=_MODEL,
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
-        cuerpo_texto = (response.choices[0].message.content or "").strip()
+        cuerpo_texto = response.content[0].text.strip()
     except Exception as e:
-        return {"error": f"Error generando email con OpenAI: {e}"}
+        return {"error": f"Error generando email con Claude: {e}"}
 
     parrafos    = [p.strip() for p in cuerpo_texto.split("\n\n") if p.strip()]
     cuerpo_html = "\n".join(f"<p>{p.replace(chr(10), '<br>')}</p>" for p in parrafos)

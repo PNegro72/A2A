@@ -16,7 +16,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
-_OUTPUT_DIR = Path(os.environ["KIT_OUTPUT_DIR"])
+_OUTPUT_DIR = Path(os.environ.get("KIT_OUTPUT_DIR", "./output/kits"))
 _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 PURPLE_DARK  = RGBColor(0x4A, 0x3B, 0x8C)

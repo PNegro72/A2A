@@ -55,6 +55,19 @@ When the user expresses intent to **find, search, look for, rank, or filter cand
 
 Do **not** ask the user for the role title, seniority, or management level before running this chain — the parsing agent will infer reasonable defaults from whatever text was provided.
 
+### Interview preparation flow
+
+When the user requests to **prepare an interview** for a candidate (in Spanish: "preparame la entrevista", "generá el kit de entrevista", "quiero preparar la entrevista para..."), run this flow:
+
+1. Call `entrevistas_agent` with `action="preparar_entrevista"` and the candidate profile data.
+2. Present the result to the user: candidate name, number of questions, estimated duration, and the download link for the kit.
+3. After presenting the result, ALWAYS ask: "¿Querés enviarle un email a [nombre del candidato] informándole sobre esta búsqueda? (sí/no)"
+4. If the user says yes: call `entrevistas_agent` with `action="enviar_email"` passing `candidato_nombre`, `candidato_email`, `proceso_titulo` and `skills_clave` from the candidate data used in step 1. Do NOT call `preparar_entrevista` again.
+5. If the user says no: end the flow.
+
+**Critical:** Never call `preparar_entrevista` again when the user only wants to send the email. Use `enviar_email` action exclusively for that.
+
+
 ## Time and datetime handling
 
 Current UTC time: `{now_utc_iso}`

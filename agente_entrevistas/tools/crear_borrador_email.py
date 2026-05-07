@@ -40,7 +40,7 @@ def crear_borrador_email(
             "draft_id": None,
         }
  
-    sender  = remitente_email or os.environ["MS_SENDER_EMAIL"]
+    sender  = remitente_email or os.environ.get("MS_SENDER_EMAIL", "hello@demomailtrap.co")
     subject = asunto or f"Oportunidad laboral: {proceso_titulo}"
  
     content_type = "html" if cuerpo_email.strip().startswith("<") else "plain"
@@ -55,7 +55,15 @@ def crear_borrador_email(
             category="Reclutamiento",
         )
  
-        client   = mt.MailtrapClient(token=api_token)
+        import ssl
+        import httpx
+
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
+
+        client = mt.MailtrapClient(token=api_token)
+        client._client = httpx.Client(verify=False)
         response = client.send(mail)
  
     except Exception as e:

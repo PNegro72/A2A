@@ -14,11 +14,9 @@ Responsabilidades:
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 
-from agente_entrevistas.tools.leer_candidato_mock import leer_candidato
 from agente_entrevistas.tools.generar_preguntas import generar_preguntas
 from agente_entrevistas.tools.web_search import web_search
 from agente_entrevistas.tools.generar_kit import generar_kit
-from agente_entrevistas.tools.guardar_resultado import guardar_resultado
 from agente_entrevistas.tools.redactar_email import redactar_email
 from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
 from agente_entrevistas.prompts.system_prompt import SYSTEM_PROMPT

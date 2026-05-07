@@ -1,21 +1,18 @@
 """
 Tool: generar_preguntas
-Genera preguntas de entrevista personalizadas usando OpenAI con structured output.
+Genera preguntas de entrevista personalizadas usando Claude Haiku con structured output.
 """
 
 import os
 import json
-from openai import OpenAI
-
-from agente_entrevistas.models.schemas import PreguntasOutput
+import anthropic
+from models.schemas import Pregunta, PreguntasOutput
 
 
 def _get_client():
-    return OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+    return anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
 
-
-def _get_model() -> str:
-    return os.environ["OPENAI_MODEL"]
+_MODEL = "claude-haiku-4-5"
 
 
 def generar_preguntas(
@@ -30,24 +27,6 @@ def generar_preguntas(
     n_preguntas_conductuales: int = 4,
     n_preguntas_presion: int = 3,
 ) -> dict:
-    """
-    Genera un set de preguntas de entrevista personalizadas para el candidato.
-
-    Args:
-        candidato_nombre: Nombre completo del candidato.
-        skills: Lista de skills declarados en el CV.
-        experiencia: Lista de experiencias laborales (empresa, cargo, descripcion).
-        cv_texto: Texto completo del CV (opcional).
-        jd_texto: Texto del Job Description (opcional pero recomendado).
-        info_publica: Resultados de web_search sobre el candidato (opcional).
-        nivel_estimado: Nivel inferido del candidato ("junior" | "semi" | "senior").
-        n_preguntas_tecnicas: Cantidad de preguntas tecnicas a generar.
-        n_preguntas_conductuales: Cantidad de preguntas conductuales (STAR).
-        n_preguntas_presion: Preguntas para detectar exageracion en el CV.
-
-    Returns:
-        Diccionario con lista de preguntas categorizadas y duracion estimada.
-    """
     experiencia_str = "\n".join([
         f"- {e.get('cargo', '')} en {e.get('empresa', '')} "
         f"({e.get('desde', '?')}) -> {e.get('hasta') or 'actual'}): "
@@ -98,21 +77,25 @@ Responde UNICAMENTE con un JSON valido, sin texto adicional, con esta estructura
   "duracion_estimada_min": <suma de tiempos>
 }}"""
 
-    raw = ""
     try:
-        response = _get_client().chat.completions.create(
-            model=_get_model(),
+        response = _get_client().messages.create(
+            model=_MODEL,
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
-            response_format={"type": "json_object"},
         )
-        raw = (response.choices[0].message.content or "").strip()
+        raw = response.content[0].text.strip()
+
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        raw = raw.strip()
 
         data   = json.loads(raw)
         output = PreguntasOutput(**data)
         return output.model_dump()
 
     except json.JSONDecodeError as e:
-        return {"error": f"Error parseando JSON: {e}", "raw": raw}
+        return {"error": f"Error parseando JSON: {e}", "raw": raw if "raw" in dir() else ""}
     except Exception as e:
-        return {"error": f"Error llamando a OpenAI: {e}"}
+        return {"error": f"Error llamando a Claude: {e}"}
