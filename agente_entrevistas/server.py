@@ -6,6 +6,7 @@ Correr desde la carpeta agente_entrevistas/:
     python server.py
 """
  
+import base64
 import logging
 import os
 import sys
@@ -65,6 +66,63 @@ def download_kit(filename: str):
         download_name=filename,
         mimetype="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
+ 
+ 
+def _extraer_texto_cv(cv_base64: str, mime_type: str) -> str | None:
+    """
+    Extrae el texto de un CV en PDF o Word a partir de su contenido base64.
+    Retorna el texto extraído o None si falla.
+    """
+    try:
+        file_bytes = base64.b64decode(cv_base64)
+ 
+        if "pdf" in mime_type:
+            import fitz  # PyMuPDF
+            doc  = fitz.open(stream=file_bytes, filetype="pdf")
+            text = "\n".join(page.get_text() for page in doc)
+            doc.close()
+            return text.strip() or None
+ 
+        elif "word" in mime_type or "openxmlformats" in mime_type:
+            import io
+            from docx import Document
+            doc  = Document(io.BytesIO(file_bytes))
+            text = "\n".join(p.text for p in doc.paragraphs if p.text.strip())
+            return text.strip() or None
+ 
+        else:
+            logger.warning("Tipo de archivo no soportado para extracción: %s", mime_type)
+            return None
+ 
+    except Exception as e:
+        logger.error("Error extrayendo texto del CV: %s", e)
+        return None
+ 
+
+def _calcular_experiencia_total(experiencia: list[dict]) -> str:
+    """Calcula el total de experiencia laboral en Python — sin LLM."""
+    from datetime import datetime
+    hoy         = datetime.now()
+    total_meses = 0
+    palabras_actual = {"actualidad", "actual", "presente", "present", "current", "hoy"}
+
+    for exp in experiencia:
+        try:
+            desde     = datetime.strptime(exp.get("desde", ""), "%Y-%m")
+            hasta_str = (exp.get("hasta") or "").strip().lower()
+            if not hasta_str or hasta_str in palabras_actual:
+                hasta = hoy
+            else:
+                hasta = datetime.strptime(hasta_str, "%Y-%m")
+            meses = (hasta.year - desde.year) * 12 + (hasta.month - desde.month)
+            if meses > 0:
+                total_meses += meses
+        except Exception:
+            continue
+
+    anios = total_meses // 12
+    meses = total_meses % 12
+    return f"{anios} años y {meses} meses"
  
  
 def _enviar_email(body: dict):
@@ -139,10 +197,24 @@ def _preparar_entrevista(body: dict):
     candidato_nombre = candidato.get("nombre", "")
     skills           = candidato.get("skills", [])
     experiencia      = candidato.get("experiencia", [])
-    cv_texto         = candidato.get("cv_texto")
     proceso_titulo   = candidato.get("proceso_titulo", "")
  
-    logger.info("Preparando entrevista | candidato=%s proceso=%s", candidato_id, proceso_id)
+    # cv_texto puede venir directo o extraerse del archivo base64
+    cv_texto      = candidato.get("cv_texto")
+    cv_base64     = body.get("cv_base64")
+    cv_mime_type  = body.get("cv_mime_type", "application/pdf")
+    cv_filename   = body.get("cv_filename", "cv.pdf")
+ 
+    if cv_base64 and not cv_texto:
+        logger.info("Extrayendo texto del CV: %s (%s)", cv_filename, cv_mime_type)
+        cv_texto = _extraer_texto_cv(cv_base64, cv_mime_type)
+        if cv_texto:
+            logger.info("CV extraído: %d caracteres", len(cv_texto))
+        else:
+            logger.warning("No se pudo extraer texto del CV")
+ 
+    logger.info("Preparando entrevista | candidato=%s proceso=%s cv=%s",
+                candidato_id, proceso_id, "sí" if cv_texto else "no")
  
     try:
         # 1. Web search
@@ -169,7 +241,32 @@ def _preparar_entrevista(body: dict):
                 if r.get("resultados"):
                     info_publica += f"\n- {empresa}: {r['resultados'][0].get('snippet', '')}"
  
-        # 2. Generar preguntas
+        # 2. Detectar CV inflado (si hay cv_texto)
+        cv_inflado_result    = {}
+        preguntas_presion_cv = []
+ 
+        if cv_texto:
+            from tools.detectar_cv_inflado import detectar_cv_inflado
+            logger.info("EXPERIENCIA DEBUG | %s", experiencia)
+            experiencia_total = _calcular_experiencia_total(experiencia)
+            cv_inflado_result = detectar_cv_inflado(
+                cv_texto=cv_texto,
+                skills_declarados=skills,
+                experiencia=experiencia,
+                nivel_esperado="senior",
+                experiencia_total_calculada=experiencia_total,
+            )
+            if "error" not in cv_inflado_result:
+                preguntas_presion_cv = cv_inflado_result.get("preguntas_presion", [])
+                logger.info(
+                    "CV analizado | inflation_score=%s red_flags=%d",
+                    cv_inflado_result.get("inflation_score"),
+                    len(cv_inflado_result.get("red_flags", [])),
+                )
+            else:
+                logger.warning("Error analizando CV: %s", cv_inflado_result.get("error"))
+ 
+        # 3. Generar preguntas
         from tools.generar_preguntas import generar_preguntas
  
         preguntas_result = generar_preguntas(
@@ -187,7 +284,17 @@ def _preparar_entrevista(body: dict):
         preguntas         = preguntas_result.get("preguntas", [])
         duracion_estimada = preguntas_result.get("duracion_estimada_min")
  
-        # 3. Generar kit
+        # Agregar preguntas de presión del análisis de CV inflado
+        for pp in preguntas_presion_cv:
+            preguntas.append({
+                "categoria":           "presion",
+                "pregunta":            pp.get("pregunta", ""),
+                "objetivo":            pp.get("objetivo", ""),
+                "nivel":               "senior",
+                "tiempo_estimado_min": 5,
+            })
+ 
+        # 4. Generar kit
         from tools.generar_kit import generar_kit
  
         kit_result = generar_kit(
@@ -218,6 +325,9 @@ def _preparar_entrevista(body: dict):
             "duracion_min":         duracion_estimada,
             "email_enviado":        False,
             "guardado_en_supabase": False,
+            "inflation_score":      cv_inflado_result.get("inflation_score"),
+            "red_flags":            cv_inflado_result.get("red_flags", []),
+            "cv_resumen":           cv_inflado_result.get("resumen", ""),
         })
  
     except Exception as exc:
@@ -229,4 +339,3 @@ if __name__ == "__main__":
     port = int(os.environ.get("ENTREVISTAS_AGENT_PORT", 8003))
     logger.info("Agente Entrevistas en http://localhost:%d/a2a/entrevistas", port)
     app.run(host="0.0.0.0", port=port, debug=False)
- 

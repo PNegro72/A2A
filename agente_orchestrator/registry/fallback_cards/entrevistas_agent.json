@@ -1,14 +1,14 @@
 {
   "name": "entrevistas_agent",
-  "version": "2.1.0",
-  "description": "Prepares a complete interview kit for a given candidate and optionally sends a contact email. Receives the candidate profile directly in the request payload. Searches for public information, generates personalized questions, and produces a Word document kit.",
+  "version": "2.3.0",
+  "description": "Prepares a complete interview kit for a given candidate and optionally sends a contact email. Receives the candidate profile directly in the request payload. Supports CV text for inflation detection.",
   "when_to_use": "When the user wants to: (1) prepare an interview for a specific candidate, generate tailored questions, or produce the interview kit document — use action 'preparar_entrevista'. (2) send a contact email to a candidate about an open position AFTER the kit has already been prepared — use action 'enviar_email'.",
   "webhook_url": "http://localhost:8003/a2a/entrevistas",
   "http_method": "POST",
   "actions": [
     {
       "name": "preparar_entrevista",
-      "description": "Orchestrates the full interview preparation flow: web search, question generation, and kit production as a Word document. Does NOT send any email — use 'enviar_email' action separately for that.",
+      "description": "Orchestrates the full interview preparation flow: web search, CV inflation detection (if cv_texto provided), question generation, and kit production as a Word document. Does NOT send any email — use 'enviar_email' action separately for that.",
       "request_schema": {
         "action": "preparar_entrevista",
         "candidato_id": "UUID string",
@@ -19,9 +19,7 @@
           "email": "string",
           "linkedin_url": "string (optional)",
           "github_username": "string (optional)",
-          "skills": [
-            "list of strings"
-          ],
+          "skills": ["list of strings"],
           "experiencia": [
             {
               "empresa": "string",
@@ -31,7 +29,7 @@
               "descripcion": "string (optional)"
             }
           ],
-          "cv_texto": "string (optional)",
+          "cv_texto": "string (optional) — full plain text of the candidate CV. Include this when the user uploads a CV file. The orchestrator must extract the text from the file and pass it here.",
           "proceso_titulo": "string"
         }
       },
@@ -46,14 +44,15 @@
             "preguntas_total",
             "duracion_min",
             "email_enviado",
-            "guardado_en_supabase"
+            "guardado_en_supabase",
+            "inflation_score",
+            "red_flags",
+            "cv_resumen"
           ]
         },
         {
           "status": "error",
-          "fields": [
-            "message"
-          ]
+          "fields": ["message"]
         }
       ]
     },
@@ -65,29 +64,22 @@
         "candidato_nombre": "string — candidate full name",
         "candidato_email": "string — candidate email address",
         "proceso_titulo": "string — position title",
-        "skills_clave": [
-          "list of 2-4 skill strings"
-        ]
+        "skills_clave": ["list of 2-4 skill strings"]
       },
       "possible_responses": [
         {
           "status": "ok",
-          "fields": [
-            "email_enviado",
-            "asunto",
-            "destinatario"
-          ]
+          "fields": ["email_enviado", "asunto", "destinatario"]
         },
         {
           "status": "error",
-          "fields": [
-            "message"
-          ]
+          "fields": ["message"]
         }
       ]
     }
   ],
   "conventions": {
+    "cv_handling": "When the user uploads a CV file, the orchestrator extracts the text and includes it in the conversation context. Pass this extracted text in 'candidato.cv_texto'. Never pass cv_base64 — always use plain text.",
     "email_behavior": "Always use 'enviar_email' action to send emails. Never pass 'enviar_email: true' to 'preparar_entrevista' — that field is ignored.",
     "question_categories": "tecnica, conductual, presion",
     "web_search": "Non-blocking. Continues with CV data if no results found.",

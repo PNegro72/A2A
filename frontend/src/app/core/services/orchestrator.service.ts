@@ -1,24 +1,8 @@
 /**
  * OrchestratorService
  * ----------------------------------------------------------------------------
- * Cliente HTTP para hablar con el backend orchestrator (FastAPI corriendo
- * en `localhost:8000` por defecto, ver ConfigService / environment.ts).
- *
- * El flujo de un mensaje siempre tiene 2 pasos:
- *
- *   1. POST /chat            → crea el request y devuelve { request_id, ... }.
- *   2. Stream de respuesta   → según TRANSPORT_MODE en config:
- *        - 'sse'     → conecta a EventSource sobre /chat/stream/{requestId}
- *                      y recibe eventos 'step', 'final', 'error'.
- *        - 'polling' → hace GET /chat/status/{requestId} cada N ms hasta
- *                      que el status sea 'done' o 'error'.
- *
- * Ambos transportes terminan emitiendo el mismo tipo común StreamItem
- * (con type 'step' | 'final' | 'error'), así el componente que consume
- * NO necesita saber si es SSE o polling — sólo se suscribe al Observable.
- *
- * Errores HTTP se traducen a mensajes amigables en castellano via
- * mapHttpError (ver al final del archivo).
+ * Cliente HTTP para hablar con el backend orchestrator.
+ * Soporta mensajes de texto y mensajes con archivos adjuntos (CV en PDF/Word).
  */
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
@@ -33,10 +17,16 @@ import {
   FinalMessage,
   StreamError,
 } from '../models/agent-step.model';
+import { MessageWithFile } from '../../features/chat/chat-input/chat-input.component';
 
 interface ChatRequest {
   conversation_id?: string;
   message: string;
+  file?: {
+    base64: string;
+    fileName: string;
+    mimeType: string;
+  };
 }
 
 interface PollingResponse {
@@ -48,17 +38,12 @@ interface PollingResponse {
 
 @Injectable({ providedIn: 'root' })
 export class OrchestratorService {
-  private readonly http = inject(HttpClient);
+  private readonly http   = inject(HttpClient);
   private readonly config = inject(ConfigService);
   private readonly logger = inject(LoggerService);
 
   /**
-   * Envía un mensaje al orchestrator y retorna un StreamInitResponse
-   * con el request_id para conectar al stream.
-   *
-   * Contrato POST /chat:
-   * Request:  { conversation_id?: string, message: string }
-   * Response: { conversation_id: string, request_id: string, stream_url: string }
+   * Envía un mensaje de texto al orchestrator.
    */
   sendMessage(conversationId: string | undefined, message: string): Observable<StreamInitResponse> {
     const body: ChatRequest = { message };
@@ -75,8 +60,36 @@ export class OrchestratorService {
   }
 
   /**
+   * Envía un mensaje con archivo adjunto (CV en PDF/Word).
+   * El archivo se incluye como base64 en el payload.
+   */
+  sendMessageWithFile(conversationId: string | undefined, payload: MessageWithFile): Observable<StreamInitResponse> {
+    const body: ChatRequest = {
+      message: payload.text,
+      file: {
+        base64:   payload.fileBase64,
+        fileName: payload.fileName,
+        mimeType: payload.mimeType,
+      },
+    };
+    if (conversationId) body.conversation_id = conversationId;
+
+    this.logger.debug('OrchestratorService.sendMessageWithFile', {
+      conversationId,
+      fileName: payload.fileName,
+      mimeType: payload.mimeType,
+    });
+
+    return this.http.post<StreamInitResponse>(this.config.chatUrl(), body).pipe(
+      catchError((err: HttpErrorResponse) => {
+        this.logger.error('Error enviando mensaje con archivo', err);
+        return throwError(() => this.mapHttpError(err));
+      })
+    );
+  }
+
+  /**
    * Conecta al stream de respuesta del orchestrator.
-   * Usa SSE o polling según la configuración de TRANSPORT_MODE.
    */
   streamResponse(requestId: string): Observable<StreamItem> {
     this.logger.debug('OrchestratorService.streamResponse', { requestId, transport: this.config.transportMode });
@@ -86,14 +99,6 @@ export class OrchestratorService {
     return this.pollStatus(requestId);
   }
 
-  /**
-   * Conecta via Server-Sent Events.
-   *
-   * Contrato GET /chat/stream/{requestId}:
-   * event: step  → data: AgentStep
-   * event: final → data: FinalMessage
-   * event: error → data: StreamError
-   */
   private connectSSE(requestId: string): Observable<StreamItem> {
     const url = this.config.streamUrl(requestId);
     this.logger.debug('Conectando SSE', { url });
@@ -123,7 +128,6 @@ export class OrchestratorService {
       });
 
       eventSource.addEventListener('error', (event: Event) => {
-        // Si el eventSource tiene readyState CLOSED, es error del servidor
         if (eventSource.readyState === EventSource.CLOSED) {
           const streamErr: StreamError = { code: 'SSE_CLOSED', message: 'Conexión SSE cerrada inesperadamente' };
           observer.next({ type: 'error', data: streamErr });
@@ -143,7 +147,6 @@ export class OrchestratorService {
         }
       });
 
-      // Teardown: cierra el EventSource al desuscribirse
       return () => {
         this.logger.debug('SSE teardown', { requestId });
         eventSource.close();
@@ -151,13 +154,6 @@ export class OrchestratorService {
     });
   }
 
-  /**
-   * Fallback: polling GET /chat/status/{requestId}
-   * Acumula pasos y espera hasta que status === 'done' | 'error'.
-   *
-   * Contrato GET /chat/status/{requestId}:
-   * Response: { status: 'running'|'done'|'error', steps: AgentStep[], final?: FinalMessage, error?: StreamError }
-   */
   private pollStatus(requestId: string): Observable<StreamItem> {
     const url = this.config.statusUrl(requestId);
     let seenStepCount = 0;
@@ -167,7 +163,6 @@ export class OrchestratorService {
         catchError((err: HttpErrorResponse) => throwError(() => this.mapHttpError(err)))
       )),
       map((response) => {
-        // Emite solo los pasos nuevos que no hayamos visto
         const newSteps = response.steps.slice(seenStepCount);
         seenStepCount = response.steps.length;
 
