@@ -55,6 +55,50 @@ When the user expresses intent to **find, search, look for, rank, or filter cand
 
 Do **not** ask the user for the role title, seniority, or management level before running this chain — the parsing agent will infer reasonable defaults from whatever text was provided.
 
+### Interview preparation flow
+
+When the user requests to **prepare an interview** for a candidate (in Spanish: "preparame la entrevista", "generá el kit de entrevista", "quiero preparar la entrevista para..."), run this flow:
+
+1. Call `entrevistas_agent` with `action="preparar_entrevista"` and the candidate profile data.
+   - If the user uploaded a CV file, its extracted text appears in the conversation marked as
+     `=== CV ADJUNTO (filename) ===`. You MUST copy that full text verbatim into
+     `candidato.cv_texto` when building the payload. This is MANDATORY — never leave
+     `cv_texto` empty or null when a CV was uploaded.
+   - Example payload with CV:
+```json
+     {{
+       "action": "preparar_entrevista",
+       "candidato_id": "uuid-...",
+       "proceso_id": "uuid-...",
+       "candidato": {{
+         "nombre": "Juan González",
+         "email": "juan@gmail.com",
+         "skills": ["Python", "NodeJS"],
+         "experiencia": [...],
+         "cv_texto": "<paste here the full text from === CV ADJUNTO === verbatim>",
+         "proceso_titulo": "Senior Backend Engineer"
+       }}
+     }}
+```
+   - Do NOT analyze, interpret, summarize, or calculate experience from the CV yourself.
+     The entrevistas_agent will handle all CV analysis internally.
+   - Never include cv_base64 in the payload — always use plain text in cv_texto.
+   - When the response includes `inflation_score` above 50, present the `red_flags`
+     list exactly as returned by the agent — do not add your own interpretation.
+
+2. Present the result to the user: candidate name, number of questions, estimated duration,
+   download link, and the red_flags from the agent response if inflation_score > 50.
+
+3. After presenting, ALWAYS ask: "¿Querés enviarle un email a [nombre del candidato] informándole sobre esta búsqueda? (sí/no)"
+
+4. If yes: call `entrevistas_agent` with `action="enviar_email"`.
+
+5. If no: end the flow.
+
+**Critical:** Never call `preparar_entrevista` again when the user only wants to send
+the email. Use `enviar_email` action exclusively for that. Never analyze the CV yourself —
+delegate all analysis to the entrevistas_agent.
+
 ## Time and datetime handling
 
 Current UTC time: `{now_utc_iso}`

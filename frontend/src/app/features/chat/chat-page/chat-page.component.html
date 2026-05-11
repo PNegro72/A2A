@@ -2,13 +2,9 @@
   Layout principal del chat.
   - Sidebar de conversaciones a la izquierda (se oculta en mobile).
   - Área principal con header, lista de mensajes e input.
-
-  El atributo data-sidebar-open sirve para que el SCSS aplique estilos
-  diferentes según la sidebar esté abierta o cerrada (sobre todo en mobile).
 -->
 <div class="chat-page" [attr.data-sidebar-open]="sidebarOpen()">
 
-  <!-- Sidebar lateral con la lista de conversaciones guardadas en localStorage -->
   <app-conversation-sidebar
     [conversations]="convService.conversations()"
     [activeId]="convService.activeConversationId()"
@@ -20,10 +16,8 @@
     (closeSidebar)="sidebarOpen.set(false)"
   />
 
-  <!-- Área principal del chat -->
   <div class="chat-main">
 
-    <!-- Header con botón de menú (mobile), título del agente y toggle de tema -->
     <header class="chat-header">
       <button
         class="chat-header__menu-btn"
@@ -45,7 +39,6 @@
       </div>
 
       <div class="chat-header__actions">
-        <!-- Toggle de tema: cicla entre light → dark → system → light -->
         <button
           class="chat-header__theme-btn"
           (click)="cycleTheme()"
@@ -53,13 +46,11 @@
           [title]="themeLabel()"
         >
           @if (themeService.resolvedTheme() === 'dark') {
-            <!-- Ícono luna cuando el tema resuelto es oscuro -->
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
             </svg>
           } @else {
-            <!-- Ícono sol cuando el tema resuelto es claro -->
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
                  stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="12" cy="12" r="5"/>
@@ -75,7 +66,6 @@
       </div>
     </header>
 
-    <!-- Lista scrolleable de mensajes (incluye el indicador de "Pensando" cuando aplica) -->
     <app-message-list
       [messages]="currentMessages()"
       [isThinking]="isThinking()"
@@ -83,11 +73,12 @@
       (retryClicked)="retry()"
     />
 
-    <!-- Input fijo abajo: textarea + botón enviar/detener -->
+    <!-- fileSent maneja mensajes con CV adjunto -->
     <app-chat-input
       [isThinking]="isThinking()"
       (messageSent)="sendMessage($event)"
       (stopClicked)="stopResponse()"
+      (fileSent)="sendMessageWithFile($event)"
     />
 
   </div>

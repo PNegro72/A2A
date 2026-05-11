@@ -24,23 +24,6 @@ def redactar_email(
     tono: str = "profesional y calido",
     info_adicional: str | None = None,
 ) -> dict:
-    """
-    Genera el cuerpo de un email para contactar a un candidato sobre
-    una busqueda abierta. El email es personalizado y no revela datos
-    confidenciales. Cierra con un CTA claro (responder si hay interes).
-
-    Args:
-        candidato_nombre: Nombre del candidato para personalizar el saludo.
-        proceso_titulo: Titulo del rol/posicion.
-        skills_clave: Lista de 2-4 skills relevantes para mencionar.
-        empresa_nombre: Nombre de la empresa (opcional).
-        idioma: Idioma del email. Default "espanol".
-        tono: Tono del email. Default "profesional y calido".
-        info_adicional: Detalles extra (modalidad, ubicacion, etc.).
-
-    Returns:
-        Dict con el cuerpo del email en texto plano y HTML, y el asunto sugerido.
-    """
     empresa_str = f"en {empresa_nombre}" if empresa_nombre else "en nuestra organizacion"
     skills_str  = ", ".join(skills_clave[:4]) if skills_clave else "tu perfil"
     info_str    = f"\nInformacion adicional a incluir: {info_adicional}" if info_adicional else ""
@@ -57,7 +40,7 @@ Datos:
 
 Instrucciones:
 - Saludo personalizado con el nombre del candidato
-- Menciona brevemente por que su perfil es interesante (usa los skills como referencia)
+- Menciona brevemente por que su perfil es interesante
 - Describe la oportunidad en 2-3 oraciones sin revelar datos confidenciales
 - Cierra con un CTA claro: pidele que responda este email si le interesa saber mas
 - Firma como "El equipo de Talent Acquisition"

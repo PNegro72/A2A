@@ -40,24 +40,6 @@ def generar_preguntas(
     n_preguntas_conductuales: int = 4,
     n_preguntas_presion: int = 3,
 ) -> dict:
-    """
-    Genera un set de preguntas de entrevista personalizadas para el candidato.
-
-    Args:
-        candidato_nombre: Nombre completo del candidato.
-        skills: Lista de skills declarados en el CV.
-        experiencia: Lista de experiencias laborales (empresa, cargo, descripcion).
-        cv_texto: Texto completo del CV (opcional).
-        jd_texto: Texto del Job Description (opcional pero recomendado).
-        info_publica: Resultados de web_search sobre el candidato (opcional).
-        nivel_estimado: Nivel inferido del candidato ("junior" | "semi" | "senior").
-        n_preguntas_tecnicas: Cantidad de preguntas tecnicas a generar.
-        n_preguntas_conductuales: Cantidad de preguntas conductuales (STAR).
-        n_preguntas_presion: Preguntas para detectar exageracion en el CV.
-
-    Returns:
-        Diccionario con lista de preguntas categorizadas y duracion estimada.
-    """
     experiencia_str = "\n".join([
         f"- {e.get('cargo', '')} en {e.get('empresa', '')} "
         f"({e.get('desde', '?')}) -> {e.get('hasta') or 'actual'}): "
@@ -108,7 +90,6 @@ Responde UNICAMENTE con un JSON valido, sin texto adicional, con esta estructura
   "duracion_estimada_min": <suma de tiempos>
 }}"""
 
-    raw = ""
     try:
         response = _get_client().messages.create(
             model=_get_model(),
@@ -122,6 +103,6 @@ Responde UNICAMENTE con un JSON valido, sin texto adicional, con esta estructura
         return output.model_dump()
 
     except json.JSONDecodeError as e:
-        return {"error": f"Error parseando JSON: {e}", "raw": raw}
+        return {"error": f"Error parseando JSON: {e}", "raw": raw if "raw" in dir() else ""}
     except Exception as e:
         return {"error": f"Error llamando a Claude: {e}"}

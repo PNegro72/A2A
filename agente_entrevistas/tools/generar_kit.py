@@ -16,7 +16,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
 
-_OUTPUT_DIR = Path(os.environ["KIT_OUTPUT_DIR"])
+_OUTPUT_DIR = Path(os.environ.get("KIT_OUTPUT_DIR", "./output/kits"))
 _OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 PURPLE_DARK  = RGBColor(0x4A, 0x3B, 0x8C)
@@ -267,6 +267,78 @@ def _build_scorecard(doc):
     _run(pf, "________________", size=9)
 
 
+def _build_analisis_cv(doc, inflation_score: int, red_flags: list, resumen: str):
+    """Agrega una sección de análisis de CV inflado al kit."""
+    _page_break(doc)
+
+    h = doc.add_heading("Análisis de CV", level=1)
+    h.runs[0].font.color.rgb = CORAL_DARK
+    _hr(doc, color="993C1D")
+
+    # Score visual
+    if inflation_score <= 20:
+        score_color = "1A7F4B"
+        score_label = "CV confiable"
+        score_fill  = "E1F5EE"
+    elif inflation_score <= 50:
+        score_color = "856B0B"
+        score_label = "Algunas inconsistencias"
+        score_fill  = "FAEEDA"
+    else:
+        score_color = "993C1D"
+        score_label = "CV posiblemente inflado"
+        score_fill  = "FAECE7"
+
+    # Tabla de score
+    t = doc.add_table(rows=1, cols=2)
+    t.style = "Table Grid"
+    _set_cell_bg(t.rows[0].cells[0], score_fill)
+    _set_cell_bg(t.rows[0].cells[1], score_fill)
+    p_label = t.rows[0].cells[0].paragraphs[0]
+    _run(p_label, "Índice de confiabilidad del CV", bold=True, size=10, color=RGBColor.from_string(score_color))
+    p_score = t.rows[0].cells[1].paragraphs[0]
+    p_score.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    _run(p_score, f"{100 - inflation_score}/100 — {score_label}", bold=True, size=11, color=RGBColor.from_string(score_color))
+
+    doc.add_paragraph()
+
+    # Resumen
+    if resumen:
+        p_res = doc.add_paragraph()
+        _run(p_res, resumen, size=9, color=GRAY_DARK, italic=True)
+        _para_spacing(p_res, before=0, after=120)
+
+    # Red flags
+    if red_flags:
+        h2 = doc.add_heading("Señales de alerta detectadas", level=2)
+        h2.runs[0].font.color.rgb = CORAL_DARK
+
+        for flag in red_flags:
+            severidad = flag.get("severidad", "media")
+            fill = "FAECE7" if severidad == "alta" else "FFF8E8" if severidad == "media" else "F5F5F5"
+            border_color = "993C1D" if severidad == "alta" else "856B0B" if severidad == "media" else "888780"
+
+            t2 = doc.add_table(rows=1, cols=1)
+            t2.style = "Table Grid"
+            cell = t2.rows[0].cells[0]
+            _set_cell_bg(cell, fill)
+
+            p_claim = cell.add_paragraph()
+            _run(p_claim, f"⚠ {flag.get('claim', '')}", bold=True, size=9, color=RGBColor.from_string(border_color))
+            _para_spacing(p_claim, before=40, after=20)
+
+            p_razon = cell.add_paragraph()
+            _run(p_razon, flag.get("razon", ""), size=8, color=GRAY_DARK, italic=True)
+            _para_spacing(p_razon, before=0, after=40)
+
+            doc.add_paragraph()
+    else:
+        p_ok = doc.add_paragraph()
+        _run(p_ok, "✓ No se detectaron señales de alerta significativas.", size=9, color=TEAL_DARK)
+        _para_spacing(p_ok, before=0, after=120)
+
+
+
 def generar_kit(
     candidato_id: str,
     candidato_nombre: str,
@@ -277,6 +349,9 @@ def generar_kit(
     preguntas: list[dict],
     duracion_estimada_min: int | None = None,
     generar_pdf: bool = False,
+    inflation_score: int | None = None,
+    red_flags: list | None = None,
+    cv_resumen: str | None = None,
 ) -> dict:
     """
     Genera el kit de entrevista completo en formato .docx usando python-docx.
@@ -305,6 +380,9 @@ def generar_kit(
         "experiencia":           experiencia or [],
         "preguntas_total":       len(preguntas or []),
         "duracion_estimada_min": duracion_estimada_min,
+        "inflation_score":      inflation_score,
+        "red_flags":            red_flags or [],
+        "cv_resumen":           cv_resumen or "",
     }
     nombre_safe = candidato_nombre.replace(" ", "_").lower()[:30]
     timestamp   = datetime.now().strftime("%Y%m%d_%H%M")
@@ -321,6 +399,8 @@ def generar_kit(
         _build_perfil(doc, data)
         _build_preguntas(doc, preguntas or [])
         _build_scorecard(doc)
+        if inflation_score is not None:
+            _build_analisis_cv(doc, inflation_score, red_flags or [], cv_resumen or "")
         doc.save(str(docx_path))
     except Exception as e:
         return {"error": f"Error generando .docx: {e}", "kit_path_docx": None, "kit_path_pdf": None}
