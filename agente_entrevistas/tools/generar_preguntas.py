@@ -1,18 +1,31 @@
 """
 Tool: generar_preguntas
-Genera preguntas de entrevista personalizadas usando Claude Haiku con structured output.
+Genera preguntas de entrevista personalizadas usando Claude con structured output.
 """
 
 import os
 import json
-import anthropic
-from models.schemas import Pregunta, PreguntasOutput
+import re
+from anthropic import Anthropic
+
+from agente_entrevistas.models.schemas import PreguntasOutput
 
 
 def _get_client():
-    return anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    return Anthropic(api_key=os.environ["CLAUDE_API_KEY"])
 
-_MODEL = "claude-haiku-4-5"
+
+def _get_model() -> str:
+    return os.environ["CLAUDE_MODEL"]
+
+
+def _extract_json(raw: str) -> str:
+    """Claude a veces envuelve el JSON con ```json ... ```; lo limpiamos."""
+    raw = raw.strip()
+    fence = re.match(r"^```(?:json)?\s*(.*?)\s*```$", raw, re.DOTALL)
+    if fence:
+        return fence.group(1).strip()
+    return raw
 
 
 def generar_preguntas(
@@ -79,19 +92,13 @@ Responde UNICAMENTE con un JSON valido, sin texto adicional, con esta estructura
 
     try:
         response = _get_client().messages.create(
-            model=_MODEL,
+            model=_get_model(),
             max_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
         )
-        raw = response.content[0].text.strip()
+        raw = (response.content[0].text or "").strip()
 
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-        raw = raw.strip()
-
-        data   = json.loads(raw)
+        data   = json.loads(_extract_json(raw))
         output = PreguntasOutput(**data)
         return output.model_dump()
 

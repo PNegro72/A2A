@@ -5,7 +5,7 @@ Central coordinator of the A2A recruiting system. Receives requests from a recru
 ## Requirements
 
 - Python 3.11+
-- An OpenAI API key
+- A Claude (Anthropic) API key
 
 ## Setup
 
@@ -18,7 +18,8 @@ pip install -r requirements.txt
 2. Create a `.env` file in this folder (never commit it):
 
 ```env
-OPENAI_API_KEY=sk-...
+CLAUDE_API_KEY=sk-ant-...
+CLAUDE_MODEL=claude-sonnet-4-6
 
 SCHEDULING_AGENT_WEBHOOK_URL=https://<your-n8n-instance>/webhook/scheduling-agent
 SCHEDULING_AGENT_CARD_URL=https://<your-n8n-instance>/webhook/scheduling-agent-card

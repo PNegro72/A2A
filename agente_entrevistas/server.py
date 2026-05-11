@@ -1,8 +1,15 @@
 """
-server.py — HTTP server para el Agente Entrevistas.
-El orquestador lo llama via POST http://localhost:8003/a2a/entrevistas
- 
-Correr desde la carpeta agente_entrevistas/:
+Servidor HTTP para el agente entrevistas.
+
+Expone POST /a2a/entrevistas aceptando el payload JSON plano que envía
+el orchestrator (ej: {"action": "preparar_entrevista", "candidato_id": "...",
+"proceso_id": "...", "enviar_email": false}) y retorna el output del agente ADK.
+
+Lee toda la configuración del .env (HOST, PORT, LOG_LEVEL, CLAUDE_*, SUPABASE_*,
+MS_*, KIT_OUTPUT_DIR, TAVILY_API_KEY/SERPER_API_KEY). Si alguna variable falta,
+el agente falla al arrancar (fail-fast en utils/config.py).
+
+Correr con (desde la carpeta agente_entrevistas/):
     python server.py
 """
  

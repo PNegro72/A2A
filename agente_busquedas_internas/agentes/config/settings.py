@@ -4,8 +4,8 @@ Carga variables de entorno desde .env usando pydantic-settings.
 Usar `get_settings()` en lugar de instanciar Settings directamente.
 
 Nota: pydantic-settings carga los valores en sus atributos pero NO los escribe
-en os.environ. Para que LiteLLM encuentre OPENAI_API_KEY en el entorno, cada agent.py
-llama a `load_dotenv()` explícitamente al inicio del módulo.
+en os.environ. Para que LiteLLM encuentre la API key de Anthropic en el entorno,
+cada agent.py llama a `load_dotenv()` explícitamente al inicio del módulo.
 
 Todos los valores se leen del .env. No hay defaults hardcodeados — si una
 variable falta, Settings() falla al instanciarse (fail-fast).
@@ -18,8 +18,8 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    OPENAI_API_KEY: str = Field(description="API Key de OpenAI (GPT)")
-    OPENAI_MODEL: str = Field(description="Modelo OpenAI a usar (formato LiteLLM)")
+    CLAUDE_API_KEY: str = Field(description="API Key de Anthropic (Claude)")
+    CLAUDE_MODEL: str = Field(description="Modelo Claude a usar (formato LiteLLM)")
 
     CVS_DIR: Path = Field(description="Directorio con los CVs en formato .pptx")
 

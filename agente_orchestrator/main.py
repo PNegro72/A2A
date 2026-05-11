@@ -25,12 +25,12 @@ logging.basicConfig(
 
 # Validate required environment variables before importing the agent
 # (the agent calls load_registry() at import time, which needs env vars)
-_missing = [v for v in ("OPENAI_API_KEY",) if not os.getenv(v)]
+_missing = [v for v in ("CLAUDE_API_KEY",) if not os.getenv(v)]
 if _missing:
     logging.error("Missing required environment variables: %s", _missing)
     print(
         f"\n[ERROR] Missing environment variables: {', '.join(_missing)}\n"
-        "  1. Add OPENAI_API_KEY=<tu_clave> en el archivo .env\n"
+        "  1. Add CLAUDE_API_KEY=<tu_clave> en el archivo .env\n"
     )
     sys.exit(1)
 

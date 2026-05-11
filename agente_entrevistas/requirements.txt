@@ -1,11 +1,15 @@
-# Servidor HTTP
-flask>=3.0.0
-flask-cors>=4.0.0
- 
-# Claude (LLM)
-anthropic>=0.40.0
- 
-# Busqueda web
+# ── Google ADK + Claude (via LiteLLM) ────────────────────────────────────────
+google-adk>=0.3.0
+anthropic>=0.34.0
+litellm>=1.40.0
+
+# ── Supabase ──────────────────────────────────────────────────────────────────
+supabase>=2.4.0
+
+# ── Email ───────────────────────────────────────────────
+mailtrap>=2.0.0
+
+# ── Búsqueda web ──────────────────────────────────────────────────────────────
 tavily-python>=0.3.3
 requests>=2.31.0
  

@@ -1,16 +1,18 @@
 """
 Tool: redactar_email
-Genera el cuerpo del email para el candidato usando Claude Haiku.
+Genera el cuerpo del email para el candidato usando Claude.
 """
 
 import os
-import anthropic
+from anthropic import Anthropic
 
 
 def _get_client():
-    return anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    return Anthropic(api_key=os.environ["CLAUDE_API_KEY"])
 
-_MODEL = "claude-haiku-4-5"
+
+def _get_model() -> str:
+    return os.environ["CLAUDE_MODEL"]
 
 
 def redactar_email(
@@ -49,11 +51,11 @@ Devuelve SOLO el cuerpo del email en texto plano, sin ningun comentario adiciona
 
     try:
         response = _get_client().messages.create(
-            model=_MODEL,
+            model=_get_model(),
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
-        cuerpo_texto = response.content[0].text.strip()
+        cuerpo_texto = (response.content[0].text or "").strip()
     except Exception as e:
         return {"error": f"Error generando email con Claude: {e}"}
 

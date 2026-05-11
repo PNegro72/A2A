@@ -5,8 +5,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-os.environ.setdefault("OPENAI_API_KEY",       "test-openai-key")
-os.environ.setdefault("OPENAI_MODEL",         "gpt-4o-mini")
+os.environ.setdefault("CLAUDE_API_KEY",       "test-claude-key")
+os.environ.setdefault("CLAUDE_MODEL",         "claude-sonnet-4-6")
 os.environ.setdefault("SUPABASE_URL",         "https://test.supabase.co")
 os.environ.setdefault("SUPABASE_SERVICE_KEY", "test-service-key")
 os.environ.setdefault("TAVILY_API_KEY",       "test-tavily-key")
