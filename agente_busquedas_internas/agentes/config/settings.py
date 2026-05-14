@@ -18,8 +18,8 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    CLAUDE_API_KEY: str = Field(description="API Key de Anthropic (Claude)")
-    CLAUDE_MODEL: str = Field(description="Modelo Claude a usar (formato LiteLLM)")
+    OPENAI_API_KEY: str = Field(description="API Key de OpenAI")
+    OPENAI_MODEL: str = Field(description="Modelo OpenAI a usar (formato LiteLLM, ej. openai/gpt-4.1)")
 
     CVS_DIR: Path = Field(description="Directorio con los CVs en formato .pptx")
 

@@ -1,20 +1,22 @@
 """
 Tool: detectar_cv_inflado
-Analiza el CV de un candidato con Claude y detecta posibles exageraciones
+Analiza el CV de un candidato con OpenAI y detecta posibles exageraciones
 o inconsistencias entre lo declarado y el nivel real esperado.
 """
- 
+
 import os
 import json
 import re
-import anthropic
+import openai
 from datetime import datetime
- 
- 
+
+
 def _get_client():
-    return anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
- 
-_MODEL = "claude-haiku-4-5"
+    return openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+
+def _get_model() -> str:
+    return os.environ["OPENAI_MODEL"]
  
  
 def _limpiar_json(raw: str) -> str:
@@ -104,12 +106,12 @@ Devuelve UNICAMENTE este JSON valido sin texto adicional. No uses comillas tipog
  
     raw = ""
     try:
-        response = _get_client().messages.create(
-            model=_MODEL,
+        response = _get_client().chat.completions.create(
+            model=_get_model(),
             max_tokens=2048,
             messages=[{"role": "user", "content": prompt}],
         )
-        raw = response.content[0].text.strip()
+        raw = response.choices[0].message.content.strip()
         raw = _limpiar_json(raw)
         data = json.loads(raw)
  

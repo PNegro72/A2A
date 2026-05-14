@@ -6,7 +6,7 @@ import os
 import pytest
 from unittest.mock import patch, MagicMock
  
-os.environ.setdefault("ANTHROPIC_API_KEY",   "test-anthropic-key")
+os.environ.setdefault("OPENAI_API_KEY",   "test-openai-key")
 os.environ.setdefault("MS_SENDER_EMAIL",     "rrhh@empresa.com")
 os.environ.setdefault("MAILTRAP_API_TOKEN",  "test-mailtrap-token")
  
@@ -37,19 +37,19 @@ def mock_mailtrap():
  
  
 @pytest.fixture
-def mock_claude_email():
-    """Mock del cliente Anthropic para redactar_email."""
+def mock_openai_email():
+    """Mock del cliente OpenAI para redactar_email."""
     mock_client = MagicMock()
-    mock_msg    = MagicMock()
-    mock_msg.content = [MagicMock(text=(
+    mock_resp   = MagicMock()
+    mock_resp.choices = [MagicMock(message=MagicMock(content=(
         "Estimada Martina,\n\n"
         "Me comunico con vos porque tu perfil en Python y FastAPI es muy relevante "
         "para una oportunidad que tenemos abierta como Senior Backend Engineer.\n\n"
         "Se trata de un rol desafiante en el sector fintech. Si te interesa saber mas, "
         "no dudes en responder este email.\n\n"
         "El equipo de Talent Acquisition"
-    ))]
-    mock_client.messages.create.return_value = mock_msg
+    )))]
+    mock_client.chat.completions.create.return_value = mock_resp
     with patch.object(_re_mod, "_get_client", return_value=mock_client):
         yield mock_client
  
@@ -193,8 +193,8 @@ class TestCrearBorradorEmail:
  
  
 class TestRedactarEmail:
- 
-    def test_retorna_cuerpo_texto(self, candidato, mock_claude_email):
+
+    def test_retorna_cuerpo_texto(self, candidato, mock_openai_email):
         from agente_entrevistas.tools.redactar_email import redactar_email
         result = redactar_email(
             candidato_nombre=candidato["nombre"],
@@ -203,8 +203,8 @@ class TestRedactarEmail:
         )
         assert "error" not in result
         assert len(result["cuerpo_texto"]) > 50
- 
-    def test_retorna_cuerpo_html(self, candidato, mock_claude_email):
+
+    def test_retorna_cuerpo_html(self, candidato, mock_openai_email):
         from agente_entrevistas.tools.redactar_email import redactar_email
         result = redactar_email(
             candidato_nombre=candidato["nombre"],
@@ -212,8 +212,8 @@ class TestRedactarEmail:
             skills_clave=candidato["skills_clave"],
         )
         assert "<p>" in result["cuerpo_html"]
- 
-    def test_retorna_asunto(self, candidato, mock_claude_email):
+
+    def test_retorna_asunto(self, candidato, mock_openai_email):
         from agente_entrevistas.tools.redactar_email import redactar_email
         result = redactar_email(
             candidato_nombre=candidato["nombre"],
@@ -221,41 +221,41 @@ class TestRedactarEmail:
             skills_clave=candidato["skills_clave"],
         )
         assert candidato["proceso_titulo"] in result["asunto"]
- 
-    def test_prompt_incluye_nombre_candidato(self, candidato, mock_claude_email):
+
+    def test_prompt_incluye_nombre_candidato(self, candidato, mock_openai_email):
         from agente_entrevistas.tools.redactar_email import redactar_email
         redactar_email(
             candidato_nombre="NombreUnicoXYZ",
             proceso_titulo=candidato["proceso_titulo"],
             skills_clave=candidato["skills_clave"],
         )
-        prompt = mock_claude_email.messages.create.call_args[1]["messages"][0]["content"]
+        prompt = mock_openai_email.chat.completions.create.call_args[1]["messages"][0]["content"]
         assert "NombreUnicoXYZ" in prompt
- 
-    def test_prompt_incluye_skills(self, candidato, mock_claude_email):
+
+    def test_prompt_incluye_skills(self, candidato, mock_openai_email):
         from agente_entrevistas.tools.redactar_email import redactar_email
         redactar_email(
             candidato_nombre=candidato["nombre"],
             proceso_titulo=candidato["proceso_titulo"],
             skills_clave=["SkillRaroTest999"],
         )
-        prompt = mock_claude_email.messages.create.call_args[1]["messages"][0]["content"]
+        prompt = mock_openai_email.chat.completions.create.call_args[1]["messages"][0]["content"]
         assert "SkillRaroTest999" in prompt
- 
-    def test_max_4_skills_en_prompt(self, mock_claude_email):
+
+    def test_max_4_skills_en_prompt(self, mock_openai_email):
         from agente_entrevistas.tools.redactar_email import redactar_email
         redactar_email(
             candidato_nombre="Test",
             proceso_titulo="Dev Role",
             skills_clave=["S1", "S2", "S3", "S4", "S5", "S6"],
         )
-        prompt = mock_claude_email.messages.create.call_args[1]["messages"][0]["content"]
+        prompt = mock_openai_email.chat.completions.create.call_args[1]["messages"][0]["content"]
         assert "S5" not in prompt
         assert "S6" not in prompt
- 
-    def test_claude_falla_retorna_error(self, candidato):
+
+    def test_openai_falla_retorna_error(self, candidato):
         mock_client = MagicMock()
-        mock_client.messages.create.side_effect = Exception("API down")
+        mock_client.chat.completions.create.side_effect = Exception("API down")
         with patch.object(_re_mod, "_get_client", return_value=mock_client):
             from agente_entrevistas.tools.redactar_email import redactar_email
             result = redactar_email(
@@ -264,8 +264,8 @@ class TestRedactarEmail:
                 skills_clave=candidato["skills_clave"],
             )
         assert "error" in result
- 
-    def test_sin_empresa_no_explota(self, candidato, mock_claude_email):
+
+    def test_sin_empresa_no_explota(self, candidato, mock_openai_email):
         from agente_entrevistas.tools.redactar_email import redactar_email
         result = redactar_email(
             candidato_nombre=candidato["nombre"],
@@ -274,8 +274,8 @@ class TestRedactarEmail:
             empresa_nombre=None,
         )
         assert "error" not in result
- 
-    def test_idioma_ingles(self, candidato, mock_claude_email):
+
+    def test_idioma_ingles(self, candidato, mock_openai_email):
         from agente_entrevistas.tools.redactar_email import redactar_email
         redactar_email(
             candidato_nombre=candidato["nombre"],
@@ -283,5 +283,5 @@ class TestRedactarEmail:
             skills_clave=candidato["skills_clave"],
             idioma="inglés",
         )
-        prompt = mock_claude_email.messages.create.call_args[1]["messages"][0]["content"]
+        prompt = mock_openai_email.chat.completions.create.call_args[1]["messages"][0]["content"]
         assert "inglés" in prompt
