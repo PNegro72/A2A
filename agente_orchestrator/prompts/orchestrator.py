@@ -47,13 +47,18 @@ Some user goals require calling multiple agents in sequence. When that is the ca
 
 ### Candidate search flow
 
-When the user expresses intent to **find, search, look for, rank, or filter candidates** (in Spanish: "buscar/encontrar candidato", "quiero un candidato", "necesito alguien que…", "perfil con…"), even if the description is short or only mentions a couple of skills, treat the user message as a free-text Job Description and run this two-step chain:
+When the user expresses intent to **find, search, look for, rank, or filter candidates** (in Spanish: "buscar/encontrar candidato", "quiero un candidato", "necesito alguien que…", "perfil con…"), even if the description is short or only mentions a couple of skills, treat the user message as a free-text Job Description and run this chain:
 
 1. Call `job_description_agent` with `action="parsear_jd"` and `jd_texto=<the user's full message verbatim>`.
-2. Take the resulting `role_title`, `role_description`, `management_level`, `skills`, and `cantidad_candidatos` from step 1's response and call `busquedas_internas_agent` with `action="buscar_candidatos"` plus those five fields. Pass `cantidad_candidatos` through verbatim — including when it is null. Never invent a number; the JD agent already decided.
-3. Present only the ranked candidates from step 2 to the user. Do not surface the intermediate parsed JD unless the user explicitly asks for it.
+2. Take the resulting `role_title`, `role_description`, `management_level`, `skills`, and `cantidad_candidatos` from step 1's response and call **both** agents in parallel:
+   - `busquedas_internas_agent` with `action="buscar_candidatos"` plus those fields.
+   - `busquedas_externas_agent` with `action="buscar_candidatos_externos"` plus those fields **and** `location` and `work_mode` (from the original user message or defaults: location="anywhere", work_mode="remote").
+   Pass `cantidad_candidatos` through verbatim — including when it is null. Never invent a number; the JD agent already decided.
+3. Present the results from **both** agents to the user. Clearly label which candidates are internal (ATS) and which are external (public sources). If one agent returns no results, present whatever the other returned. If both return results, present both lists separately.
 
 Do **not** ask the user for the role title, seniority, or management level before running this chain — the parsing agent will infer reasonable defaults from whatever text was provided.
+
+If the user specifically says they only want **internal** or **external** candidates, call only that agent instead of both.
 
 ### Interview preparation flow
 

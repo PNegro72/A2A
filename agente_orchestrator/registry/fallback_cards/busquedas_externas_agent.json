@@ -1,0 +1,45 @@
+{
+  "name": "busquedas_externas_agent",
+  "version": "1.0.0",
+  "description": "Searches external sources (Himalayas, GitHub, Tavily) for candidates matching a structured Job Description. Returns a scored, deduplicated shortlist with evidence-attributed candidates.",
+  "when_to_use": "When the user wants to search for external candidates beyond the internal ATS, find candidates from public job boards, verify candidate claims from public data, or broaden the search beyond internal employees. Always use AFTER the job_description_agent has structured the JD. Can be called in parallel with busquedas_internas_agent.",
+  "webhook_url": "http://localhost:8080/a2a/busquedas_externas",
+  "http_method": "POST",
+  "actions": [
+    {
+      "name": "buscar_candidatos_externos",
+      "description": "Searches external sources for candidates matching the provided structured Job Description. Searches Himalayas (opt-in remote candidates), GitHub (technical signal), and Tavily (web verification). Returns deduplicated, scored candidates with evidence attribution and risk flags.",
+      "request_schema": {
+        "action": "buscar_candidatos_externos",
+        "role_title": "string — job title exactly as it appears in the JD",
+        "role_description": "string — 3-4 sentence summary of responsibilities",
+        "management_level": "Individual Contributor | Team Lead | Manager | Senior Manager | Director | Vice President",
+        "skills": ["skill1", "skill2", "..."],
+        "location": "string — city, country, or 'anywhere'",
+        "work_mode": "remote | hybrid",
+        "cantidad_candidatos": "integer or null — number of candidates requested. Pass through verbatim from the JD agent's output. null means 'use default'"
+      },
+      "possible_responses": [
+        {
+          "status": "exito",
+          "fields": ["job_title", "candidates[]", "sources_used", "caveats"]
+        },
+        {
+          "status": "sin_resultados",
+          "fields": ["job_title", "candidates", "sources_used", "caveats"]
+        },
+        {
+          "status": "error",
+          "fields": ["message"]
+        }
+      ]
+    }
+  ],
+  "conventions": {
+    "management_levels": "Must be exactly one of: 'Individual Contributor', 'Team Lead', 'Manager', 'Senior Manager', 'Director', 'Vice President'. When ambiguous, always choose the lower level.",
+    "skills_format": "PascalCase for technologies and tools (e.g., 'Python', 'AWS', 'PostgreSQL', 'FastAPI'); lowercase in Spanish for soft skills (e.g., 'liderazgo', 'comunicación efectiva'). Max 15 skills.",
+    "candidate_format": "Each candidate includes: canonical_id, name (if available), headline, profile_url, score (0.0–1.0), reasoning, risk_flags, and evidence items with source_url, source_type, verified, and inferred flags.",
+    "evidence_trust": "Himalayas sources are 'opt-in' (verified=True). GitHub sources are 'public-api' (verified=True). Tavily sources are 'web-search' (verified=False). The scorer only uses evidence — it never generates or infers facts.",
+    "state": "Stateless: each request is independent. No cross-run persistence is visible to the caller."
+  }
+}

@@ -1,6 +1,7 @@
 import uuid
 
 from google.adk.agents import LlmAgent, ParallelAgent, SequentialAgent
+from google.adk.models.lite_llm import LiteLlm
 from google.adk.tools import FunctionTool
 
 from src.agents.deduplicator import make_deduplicator_agent
@@ -11,6 +12,7 @@ from src.agents.scorer import make_scorer_agent
 from src.agents.sourcing.github import make_github_source_agent
 from src.agents.sourcing.himalayas import make_himalayas_source_agent
 from src.agents.sourcing.tavily import make_tavily_research_agent
+from src.config import OPENAI_MODEL
 from src.domain.models import StateKeys
 from src.persistence.repositories import (
     CandidateRepository,
@@ -35,9 +37,11 @@ def create_orchestrator_agent(
         await pipeline_repo.create(run_id, job_description, location, work_mode)
         return run_id
 
+    _model = LiteLlm(model=OPENAI_MODEL)
+
     intake_agent = LlmAgent(
         name="intake_agent",
-        model="gemini-2.0-flash",
+        model=_model,
         instruction=(
             "You are the intake processor for the agente_busquedas_externas pipeline.\n"
             "The incoming message is a JSON object with three required fields:\n"
@@ -63,9 +67,9 @@ def create_orchestrator_agent(
     sourcing_phase = ParallelAgent(
         name="sourcing_phase",
         sub_agents=[
-            make_himalayas_source_agent(),
-            make_github_source_agent(),
-            make_tavily_research_agent(),
+            make_himalayas_source_agent(model=OPENAI_MODEL),
+            make_github_source_agent(model=OPENAI_MODEL),
+            make_tavily_research_agent(model=OPENAI_MODEL),
         ],
     )
 
@@ -73,11 +77,11 @@ def create_orchestrator_agent(
         name="agente_busquedas_externas_orchestrator",
         sub_agents=[
             intake_agent,
-            make_jd_analyst_agent(),
-            make_planner_agent(),
+            make_jd_analyst_agent(model=OPENAI_MODEL),
+            make_planner_agent(model=OPENAI_MODEL),
             sourcing_phase,
-            make_deduplicator_agent(candidate_repo),
-            make_scorer_agent(),
-            make_reporter_agent(pipeline_repo, report_repo),
+            make_deduplicator_agent(candidate_repo, model=OPENAI_MODEL),
+            make_scorer_agent(model=OPENAI_MODEL),
+            make_reporter_agent(pipeline_repo, report_repo, model=OPENAI_MODEL),
         ],
     )
