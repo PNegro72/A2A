@@ -15,7 +15,7 @@ from agentes.busquedas_internas.tools.consultar_ats import Consultar_ats
 from agentes.config.settings import get_settings
 from schemas.ResultadoRanking import ResultadoRanking
 
-load_dotenv()
+load_dotenv(override=True)
 
 
 def _read_prompt(filename: str) -> str:

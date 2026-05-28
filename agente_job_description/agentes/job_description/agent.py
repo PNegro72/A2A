@@ -16,7 +16,7 @@ from google.adk.models.lite_llm import LiteLlm
 from agentes.config.settings import get_settings
 from schemas import JobDescriptionEstructurada
 
-load_dotenv()
+load_dotenv(override=True)
 
 
 def _read_prompt(filename: str) -> str:

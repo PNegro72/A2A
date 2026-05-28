@@ -198,27 +198,52 @@ async def run_busquedas_externas(request: Request) -> JSONResponse:
         return JSONResponse(
             {"status": "error", "message": msg}, status_code=500
         )
-    finally:
-        try:
-            await session_service.delete_session(
-                app_name=APP_NAME, user_id=USER_ID, session_id=session_id
-            )
-        except Exception:
-            logger.exception("No se pudo limpiar la sesión %s", session_id)
 
-    if not final_text:
-        return JSONResponse(
-            {"status": "error", "message": "El agente no retornó respuesta"},
-            status_code=500,
+    # Read the ShortlistReport from state — this is the authoritative output
+    # of the reporter agent (output_key=StateKeys.SHORTLIST_REPORT).
+    # The LLM's final_text may be a summary or description, not the JSON.
+    report_data = None
+    try:
+        session = await session_service.get_session(
+            app_name=APP_NAME, user_id=USER_ID, session_id=session_id
         )
+        if session and session.state:
+            report_data = session.state.get("shortlist_report")
+    except Exception:
+        logger.warning("Could not read shortlist_report from state", exc_info=True)
 
     try:
-        result = json.loads(final_text)
-        if isinstance(result, dict):
-            result.setdefault("status", "exito")
-        return JSONResponse(result)
-    except json.JSONDecodeError:
+        await session_service.delete_session(
+            app_name=APP_NAME, user_id=USER_ID, session_id=session_id
+        )
+    except Exception:
+        logger.exception("No se pudo limpiar la sesión %s", session_id)
+
+    if report_data:
+        if isinstance(report_data, str):
+            try:
+                report_data = json.loads(report_data)
+            except json.JSONDecodeError:
+                logger.warning("shortlist_report is string but not valid JSON, len=%d", len(report_data))
+        if isinstance(report_data, dict):
+            report_data.setdefault("status", "exito")
+            return JSONResponse(report_data)
+
+    # Fallback: try to parse the LLM's text response
+    if final_text:
+        try:
+            result = json.loads(final_text)
+            if isinstance(result, dict):
+                result.setdefault("status", "exito")
+                return JSONResponse(result)
+        except json.JSONDecodeError:
+            logger.warning("LLM final_text is not valid JSON, len=%d: %.200s", len(final_text), final_text)
         return JSONResponse({"status": "exito", "result": final_text})
+
+    return JSONResponse(
+        {"status": "error", "message": "El agente no retornó respuesta"},
+        status_code=500,
+    )
 
 
 @app.get("/health")

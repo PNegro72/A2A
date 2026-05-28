@@ -21,7 +21,11 @@ def make_scorer_agent(model: str | None = None) -> LlmAgent:
             '  "risk_flags": list of RiskFlag dicts, each with:\n'
             '      "type": one of "data-quality", "compliance", "weak-signal", "conflict"\n'
             '      "description": str\n'
-            '      "severity": one of "low", "medium", "high"\n\n'
+'  "severity": one of "low", "medium", "high"\n\n'
+            "IMPORTANT — include merged_leads:\n"
+            '  "merged_leads": list — copy merged_leads verbatim from the CandidateIdentity.\n'
+            "     This gives the entrevistas_agent name, profile_url, and evidence without\n"
+            "     requiring an additional lookup. Do NOT omit or summarize this field.\n\n"
             "STRICT EVIDENCE RULES:\n"
             "- Only use data present in the candidate's CandidateEvidence records\n"
             "- NEVER generate or infer facts not present in evidence\n"

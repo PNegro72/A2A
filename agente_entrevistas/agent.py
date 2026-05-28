@@ -16,13 +16,13 @@ import os
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 
-from agente_entrevistas.tools.generar_preguntas import generar_preguntas
-from agente_entrevistas.tools.web_search import web_search
-from agente_entrevistas.tools.generar_kit import generar_kit
-from agente_entrevistas.tools.redactar_email import redactar_email
-from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
-from agente_entrevistas.prompts.system_prompt import SYSTEM_PROMPT
-from agente_entrevistas.utils.config import OPENAI_API_KEY, OPENAI_MODEL
+from tools.generar_preguntas import generar_preguntas
+from tools.web_search import web_search
+from tools.generar_kit import generar_kit
+from tools.redactar_email import redactar_email
+from tools.crear_borrador_email import crear_borrador_email
+from prompts.system_prompt import SYSTEM_PROMPT
+from utils.config import OPENAI_API_KEY, OPENAI_MODEL
 
 MODEL = LiteLlm(model=OPENAI_MODEL)
 

@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_file
 from flask_cors import CORS
  
-load_dotenv()
+load_dotenv(override=True)
  
 logging.basicConfig(
     level=logging.INFO,
@@ -224,17 +224,24 @@ def _preparar_entrevista(body: dict):
                 candidato_id, proceso_id, "sí" if cv_texto else "no")
  
     try:
-        # 1. Web search
         from tools.web_search import web_search
- 
-        info_publica = ""
-        query = f"{candidato_nombre} software engineer"
-        if candidato.get("linkedin_url"):
+
+        # 1. Web search — prefer profile_url (Himalayas/GitHub direct link),
+        #    then linkedin_url, then github_username, then name fallback
+        query = None
+        profile_url = candidato.get("profile_url")
+        if profile_url:
+            query = f"{candidato_nombre} {profile_url}"
+        elif candidato.get("linkedin_url"):
             query = f"{candidato_nombre} {candidato['linkedin_url']}"
         elif candidato.get("github_username"):
             query = f"{candidato_nombre} github {candidato['github_username']}"
- 
+        else:
+            query = f"{candidato_nombre} software engineer"
+
+        logger.info("Web search query: %s", query)
         search_result = web_search(query, max_results=5)
+        info_publica = ""
         if search_result.get("resultados"):
             info_publica = "\n".join([
                 f"- {r['titulo']}: {r['snippet']}"

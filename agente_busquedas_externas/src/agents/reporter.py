@@ -20,7 +20,6 @@ def make_reporter_agent(
 
         logger = logging.getLogger("google_adk." + __name__)
 
-        # Pre-process: fix common LLM schema mistakes before validation
         try:
             raw = json.loads(report_json)
         except json.JSONDecodeError as e:
@@ -29,19 +28,8 @@ def make_reporter_agent(
                 run_id, e, report_json,
             )
             return f"skipped:{run_id}"
-        for c in raw.get("candidates", []):
-            fixed_flags = []
-            for flag in c.get("risk_flags", []):
-                if isinstance(flag, str):
-                    # LLM output a bare string instead of a RiskFlag dict
-                    fixed_flags.append(
-                        {"type": "data-quality", "description": flag, "severity": "low"}
-                    )
-                elif isinstance(flag, dict):
-                    fixed_flags.append(flag)
-                else:
-                    logger.warning("persist_report: skipping non-dict risk_flag: %s", flag)
-            c["risk_flags"] = fixed_flags
+        # Model validators handle canonical_id→candidate_id, missing reasoning,
+        # missing source_url, string risk_flags, etc.
         report = ShortlistReport.model_validate(raw)
         await report_repo.save(run_id, report)
         await pipeline_repo.complete(run_id)
@@ -59,16 +47,23 @@ def make_reporter_agent(
             '  "generated_at": ISO 8601 datetime string (will be overridden on persist)\n'
             '  "candidates": list of CandidateScore dicts (taken from CANDIDATE_SCORES, '
             "sorted by score descending)\n"
-            '  "sources_used": list of source names actually queried, e.g. ["github"]\n'
+            '  "sources_used": list of source names actually queried, e.g. [\"github\", \"himalayas\"]\n'
             '  "caveats": list of str — MUST be non-empty. Include data provenance and '
             "any RiskFlags of severity >= medium from the scores\n\n"
+            "CRITICAL — each CandidateScore in candidates must include merged_leads:\n"
+            "- merged_leads contains name, profile_url, and evidence from all sources\n"
+            "- The entrevistas_agent needs this data to generate interview kits\n"
+            "- Copy merged_leads from CANDIDATE_SCORES verbatim — do NOT omit it\n\n"
             "RULES:\n"
             "- Every candidate MUST have >= 1 evidence item in their merged_leads\n"
             "- If candidates list is empty, add caveat: "
             "'No candidates found from configured sources'\n"
             f"- Call persist_report(state['{StateKeys.PIPELINE_RUN_ID}'], report_json) "
             "  to save and complete the run\n"
-            f"- Write the ShortlistReport JSON dict to state['{StateKeys.SHORTLIST_REPORT}']"
+            f"- Write the ShortlistReport JSON dict to state['{StateKeys.SHORTLIST_REPORT}']\n\n"
+            "OUTPUT: Your final response MUST be ONLY the complete ShortlistReport JSON object. "
+            "No markdown fences, no explanation, no summary text. Just the raw JSON with all "
+            "candidate details including merged_leads (name, profile_url, evidence)."
         ),
         tools=[FunctionTool(persist_report)],
         output_key=StateKeys.SHORTLIST_REPORT,

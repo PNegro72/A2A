@@ -22,6 +22,8 @@ def make_deduplicator_agent(
         import json
         import logging
 
+        from pydantic import ValidationError
+
         logger = logging.getLogger("google_adk." + __name__)
 
         try:
@@ -44,24 +46,14 @@ def make_deduplicator_agent(
                 )
                 continue
             try:
-                leads.append(CandidateLead(**lead))
-            except Exception:
-                # Attempt partial recovery: map common field names
-                patched = dict(lead)
-                if "raw_id" not in patched or not patched["raw_id"]:
-                    patched["raw_id"] = (
-                        patched.get("github_username")
-                        or patched.get("login")
-                        or canonical_id.removeprefix("gh:")
-                    )
-                if "profile_url" not in patched or not patched["profile_url"]:
-                    patched["profile_url"] = (
-                        patched.get("html_url")
-                        or f"https://github.com/{patched.get('raw_id', 'unknown')}"
-                    )
-                if "source" not in patched or not patched["source"]:
-                    patched["source"] = "github"
-                leads.append(CandidateLead(**patched))
+                leads.append(CandidateLead.model_validate(lead))
+            except ValidationError:
+                logger.warning(
+                    "save_candidate: skipping un-normalizable lead for %s: %.200s",
+                    canonical_id, str(lead)[:200],
+                    exc_info=True,
+                )
+                continue
         identity = CandidateIdentity(canonical_id=canonical_id, merged_leads=leads)
         await candidate_repo.upsert(identity)
         return f"saved:{canonical_id}"

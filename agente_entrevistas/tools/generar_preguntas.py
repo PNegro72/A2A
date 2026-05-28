@@ -8,7 +8,7 @@ import json
 import re
 from openai import OpenAI
 
-from agente_entrevistas.models.schemas import PreguntasOutput
+from models.schemas import PreguntasOutput
 
 
 def _get_client():

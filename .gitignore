@@ -65,3 +65,6 @@ AGENTS.md
 CONTRIBUTING.md
 SECURITY.md
 opencode.json
+
+# pip install mistype artifacts (e.g., pip install package=1.0.0)
+**/=*
