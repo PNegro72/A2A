@@ -27,7 +27,7 @@ from sentence_transformers import SentenceTransformer
 from agentes.config.settings import get_settings
 from schemas.cvs_data import Cvs_data
 
-load_dotenv()
+load_dotenv(override=True)
 
 # region Configuración de rutas
 

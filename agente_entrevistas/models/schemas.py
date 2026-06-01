@@ -32,6 +32,7 @@ class Candidato(BaseModel):
     experiencia:      list[ExperienciaLaboral] = []
     cv_texto:         Optional[str] = None
     jd_texto:         Optional[str] = None
+    profile_url:      Optional[str] = Field(None, description="Himalayas or GitHub profile URL — used for web search to find contact info for external candidates")
 
 
 class Pregunta(BaseModel):

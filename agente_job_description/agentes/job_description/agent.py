@@ -16,7 +16,7 @@ from google.adk.models.lite_llm import LiteLlm
 from agentes.config.settings import get_settings
 from schemas import JobDescriptionEstructurada
 
-load_dotenv()
+load_dotenv(override=True)
 
 
 def _read_prompt(filename: str) -> str:
@@ -27,7 +27,6 @@ def _read_prompt(filename: str) -> str:
 
 
 settings = get_settings()
-os.environ["ANTHROPIC_API_KEY"] = settings.CLAUDE_API_KEY
 
 root_agent = LlmAgent(
     name="job_description",
@@ -35,7 +34,7 @@ root_agent = LlmAgent(
         "Parsea Job Descriptions en texto libre y las estructura en JSON. "
         "Extrae título del rol, descripción, nivel de management y skills requeridas."
     ),
-    model=LiteLlm(model=f"anthropic/{settings.CLAUDE_MODEL}"),
+    model=LiteLlm(model=settings.OPENAI_MODEL),
     instruction=_read_prompt("agent-prompt.txt"),
     output_schema=JobDescriptionEstructurada,
 )

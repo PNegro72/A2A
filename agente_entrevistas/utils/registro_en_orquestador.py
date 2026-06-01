@@ -5,7 +5,7 @@ Este archivo es solo referencia — va en el proyecto del orquestador.
 
 from google.adk.agents import Agent
 from google.adk.tools.agent_tool import AgentTool
-from agente_entrevistas.agent import agente_entrevistas
+from agent import agente_entrevistas
 
 orquestador = Agent(
     name="orquestador_reclutamiento",

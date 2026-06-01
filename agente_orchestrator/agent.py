@@ -18,16 +18,14 @@ from datetime import datetime, timezone
 from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
+load_dotenv(override=True)
+
 from google.adk.agents import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
 
 from prompts.orchestrator import build_system_instruction
 from registry.loader import get_registry_summary_for_prompt, load_registry
 from tools.call_external_agent import call_external_agent
-
-# Cargar .env explícitamente: agent.py puede importarse desde adk web / notebook
-# sin pasar por server.py, que es donde normalmente se hace load_dotenv().
-load_dotenv()
 
 # --- Startup: load registry and build system instruction ---
 
@@ -40,11 +38,9 @@ _instruction = build_system_instruction(_registry_summary, _now_utc_iso, _tz_nam
 
 # --- Agent definition ---
 
-os.environ["ANTHROPIC_API_KEY"] = os.environ["CLAUDE_API_KEY"]
-
 root_agent = LlmAgent(
     name="recruiting_orchestrator",
-    model=LiteLlm(model=f"anthropic/{os.environ['CLAUDE_MODEL']}"),
+    model=LiteLlm(model=os.environ["OPENAI_MODEL"]),
     description=(
         "Recruiting orchestrator. Delegates tasks to specialized agents "
         "via HTTP, driven by dynamically loaded agent cards."

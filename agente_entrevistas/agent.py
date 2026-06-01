@@ -1,5 +1,5 @@
 """
-Agente Entrevistas — Google ADK + Claude (vía LiteLLM)
+Agente Entrevistas — Google ADK + OpenAI (vía LiteLLM)
 Invocado como AgentTool desde el Orquestador principal.
 
 Responsabilidades:
@@ -16,18 +16,15 @@ import os
 from google.adk.agents import Agent
 from google.adk.models.lite_llm import LiteLlm
 
-from agente_entrevistas.tools.generar_preguntas import generar_preguntas
-from agente_entrevistas.tools.web_search import web_search
-from agente_entrevistas.tools.generar_kit import generar_kit
-from agente_entrevistas.tools.redactar_email import redactar_email
-from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
-from agente_entrevistas.prompts.system_prompt import SYSTEM_PROMPT
-from agente_entrevistas.utils.config import CLAUDE_API_KEY, CLAUDE_MODEL
+from tools.generar_preguntas import generar_preguntas
+from tools.web_search import web_search
+from tools.generar_kit import generar_kit
+from tools.redactar_email import redactar_email
+from tools.crear_borrador_email import crear_borrador_email
+from prompts.system_prompt import SYSTEM_PROMPT
+from utils.config import OPENAI_API_KEY, OPENAI_MODEL
 
-# LiteLLM enruta a Anthropic. Requiere ANTHROPIC_API_KEY en el entorno;
-# como el .env usa CLAUDE_API_KEY, lo aliasamos acá.
-os.environ["ANTHROPIC_API_KEY"] = CLAUDE_API_KEY
-MODEL = LiteLlm(model=f"anthropic/{CLAUDE_MODEL}")
+MODEL = LiteLlm(model=OPENAI_MODEL)
 
 agente_entrevistas = Agent(
     name="agente_entrevistas",

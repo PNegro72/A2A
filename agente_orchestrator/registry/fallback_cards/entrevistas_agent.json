@@ -2,7 +2,7 @@
   "name": "entrevistas_agent",
   "version": "2.3.0",
   "description": "Prepares a complete interview kit for a given candidate and optionally sends a contact email. Receives the candidate profile directly in the request payload. Supports CV text for inflation detection.",
-  "when_to_use": "When the user wants to: (1) prepare an interview for a specific candidate, generate tailored questions, or produce the interview kit document — use action 'preparar_entrevista'. (2) send a contact email to a candidate about an open position AFTER the kit has already been prepared — use action 'enviar_email'.",
+  "when_to_use": "When the user wants to: (1) prepare an interview for a specific candidate (internal ATS or external from Himalayas), generate tailored questions, or produce the interview kit document — use action 'preparar_entrevista'. (2) send a contact email to a candidate about an open position AFTER the kit has already been prepared — use action 'enviar_email'. For external candidates (no email/experiencia in system), use profile_url for web search to gather contact info.",
   "webhook_url": "http://localhost:8003/a2a/entrevistas",
   "http_method": "POST",
   "actions": [
@@ -11,26 +11,27 @@
       "description": "Orchestrates the full interview preparation flow: web search, CV inflation detection (if cv_texto provided), question generation, and kit production as a Word document. Does NOT send any email — use 'enviar_email' action separately for that.",
       "request_schema": {
         "action": "preparar_entrevista",
-        "candidato_id": "UUID string",
-        "proceso_id": "UUID string",
+        "candidato_id": "UUID string or 'external-<candidate_id>' for Himalayas candidates",
+        "proceso_id": "UUID string or 'external-<run_id>'",
         "jd_texto": "string (optional)",
         "candidato": {
           "nombre": "string",
-          "email": "string",
+          "email": "string (optional — not available for external/Himalayas candidates; pass empty string)",
           "linkedin_url": "string (optional)",
           "github_username": "string (optional)",
-          "skills": ["list of strings"],
+          "skills": ["list of strings (extracted from evidence)"],
           "experiencia": [
             {
-              "empresa": "string",
+              "empresa": "string (often empty for external candidates)",
               "cargo": "string",
-              "desde": "string (YYYY-MM)",
-              "hasta": "string or null",
+              "desde": "string YYYY-MM (optional)",
+              "hasta": "string YYYY-MM or null (optional)",
               "descripcion": "string (optional)"
             }
           ],
           "cv_texto": "string (optional) — full plain text of the candidate CV. Include this when the user uploads a CV file. The orchestrator must extract the text from the file and pass it here.",
-          "proceso_titulo": "string"
+          "proceso_titulo": "string",
+          "profile_url": "string (optional but strongly recommended for external candidates — used for web search to find contact info)"
         }
       },
       "possible_responses": [

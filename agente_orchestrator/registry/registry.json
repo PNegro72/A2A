@@ -19,6 +19,11 @@
       "name": "entrevistas_agent",
       "card_url_env": "ENTREVISTAS_AGENT_CARD_URL",
       "fallback_path": "fallback_cards/entrevistas_agent.json"
+    },
+    {
+      "name": "busquedas_externas_agent",
+      "card_url_env": "BUSQUEDAS_EXTERNAS_AGENT_CARD_URL",
+      "fallback_path": "fallback_cards/busquedas_externas_agent.json"
     }
   ]
 }

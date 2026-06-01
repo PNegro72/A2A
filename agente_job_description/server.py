@@ -7,7 +7,7 @@ Expone dos endpoints:
   - POST /a2a/redactar_jd      → recibe una request corta del usuario y genera
     una JD completa en JobDescriptionRedactada (con idioma detectado).
 
-Requiere CLAUDE_API_KEY en .env. Host y puerto se configuran via
+Requiere OPENAI_API_KEY en .env. Host y puerto se configuran via
 HOST y PORT (ver agentes/config/settings.py).
 
 Correr con:
@@ -30,7 +30,7 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types
 
-load_dotenv()
+load_dotenv(override=True)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)

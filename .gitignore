@@ -56,3 +56,15 @@ a2a_env/
 a2a-protocol-488221-de424eb7f166.json
 .cursorignore
 .cursorindexingignore
+
+# NERV-generated infrastructure
+.nerv/
+.opencode/
+.githooks/
+AGENTS.md
+CONTRIBUTING.md
+SECURITY.md
+opencode.json
+
+# pip install mistype artifacts (e.g., pip install package=1.0.0)
+**/=*
