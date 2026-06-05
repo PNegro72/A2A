@@ -68,3 +68,7 @@ opencode.json
 
 # pip install mistype artifacts (e.g., pip install package=1.0.0)
 **/=*
+
+# Generated agent outputs and OS/editor cruft
+agente_entrevistas/output/
+*.url
