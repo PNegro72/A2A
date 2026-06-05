@@ -21,7 +21,19 @@
       "PowerShell(Invoke-RestMethod -Uri \"http://localhost:8001/list-apps\" | ConvertTo-Json)",
       "Bash(requirements)",
       "Bash(pyproject\")",
-      "PowerShell(Get-Command node -ErrorAction SilentlyContinue; Get-Command npm -ErrorAction SilentlyContinue; Get-Command npx -ErrorAction SilentlyContinue; Write-Host \"---\"; Write-Host \"PATH:\"; $env:PATH -split ';' | Where-Object { $_ -match 'node|npm' })"
+      "PowerShell(Get-Command node -ErrorAction SilentlyContinue; Get-Command npm -ErrorAction SilentlyContinue; Get-Command npx -ErrorAction SilentlyContinue; Write-Host \"---\"; Write-Host \"PATH:\"; $env:PATH -split ';' | Where-Object { $_ -match 'node|npm' })",
+      "Bash(Get-ChildItem -Path \"C:\\\\a2a\" -Force)",
+      "Bash(Select-Object -Property Name, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(.venv\\\\Scripts\\\\python.exe -c \"import langfuse; import openinference.instrumentation.google_adk; import opentelemetry; import opentelemetry.exporter.otlp.proto.http.trace_exporter\")",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(gh api *)",
+      "PowerShell(cd C:\\\\a2a\\\\agente_busquedas_internas; .venv\\\\Scripts\\\\python.exe --version; Get-ChildItem \".venv\\\\Lib\\\\site-packages\\\\opentelemetry\" -Name | Where-Object { $_ -match \"proto\" })",
+      "PowerShell(gh api *)",
+      "WebFetch(domain:api.github.com)",
+      "WebFetch(domain:langfuse.com)",
+      "Bash(dir *)"
     ]
   }
 }

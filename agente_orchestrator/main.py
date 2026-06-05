@@ -34,6 +34,9 @@ if _missing:
     )
     sys.exit(1)
 
+from observability import init_observability  # noqa: E402 — must precede google.adk
+init_observability("recruiting_orchestrator")
+
 from google.adk.runners import Runner  # noqa: E402
 from google.adk.sessions import InMemorySessionService  # noqa: E402
 from google.genai import types  # noqa: E402

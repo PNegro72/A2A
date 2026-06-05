@@ -22,15 +22,20 @@ import uuid
 from contextlib import asynccontextmanager
 from typing import Optional
 
-import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.genai import types
 
 load_dotenv(override=True)
+
+from observability import init_observability  # noqa: E402 — must precede google.adk
+init_observability("job_description")
+
+import uvicorn  # noqa: E402
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
+from google.adk.runners import Runner  # noqa: E402
+from google.adk.sessions import InMemorySessionService  # noqa: E402
+from google.genai import types  # noqa: E402
+from opentelemetry import trace  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -41,6 +46,8 @@ sys.path.insert(0, ".")
 from agentes.config.settings import get_settings  # noqa: E402
 from agentes.job_description.agent import root_agent as parser_agent  # noqa: E402
 from agentes.redactar_jd.agent import root_agent as redactor_agent  # noqa: E402
+
+_tracer = trace.get_tracer(__name__)
 
 PARSER_APP_NAME = "job_description"
 REDACTOR_APP_NAME = "redactar_jd"
@@ -104,42 +111,45 @@ async def _run_agent(
             status_code=400,
         )
 
-    logger.info("[%s] Request recibido: action=%s", app_name, payload.get("action"))
-
     input_text = json.dumps(payload, ensure_ascii=False)
 
-    session_id = f"req_{uuid.uuid4().hex}"
-    await session_service.create_session(app_name=app_name, user_id=USER_ID, session_id=session_id)
+    with _tracer.start_as_current_span(f"agent.{app_name}") as span:
+        span.set_attribute("input.value", input_text)
+        logger.info("[%s] Request recibido: action=%s", app_name, payload.get("action"))
 
-    content = types.Content(role="user", parts=[types.Part(text=input_text)])
+        session_id = f"req_{uuid.uuid4().hex}"
+        await session_service.create_session(app_name=app_name, user_id=USER_ID, session_id=session_id)
 
-    final_text = None
-    try:
-        async for event in runner.run_async(user_id=USER_ID, session_id=session_id, new_message=content):
-            if event.is_final_response() and event.content and event.content.parts:
-                final_text = event.content.parts[0].text
-                break
-    except Exception as exc:
-        logger.exception("Error ejecutando agente %s", app_name)
-        return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
-    finally:
+        content = types.Content(role="user", parts=[types.Part(text=input_text)])
+
+        final_text = None
         try:
-            await session_service.delete_session(
-                app_name=app_name, user_id=USER_ID, session_id=session_id,
-            )
-        except Exception:
-            logger.exception("No se pudo limpiar la sesión %s", session_id)
+            async for event in runner.run_async(user_id=USER_ID, session_id=session_id, new_message=content):
+                if final_text is None and event.is_final_response() and event.content and event.content.parts:
+                    final_text = event.content.parts[0].text
+        except Exception as exc:
+            logger.exception("Error ejecutando agente %s", app_name)
+            return JSONResponse({"status": "error", "message": str(exc)}, status_code=500)
+        finally:
+            try:
+                await session_service.delete_session(
+                    app_name=app_name, user_id=USER_ID, session_id=session_id,
+                )
+            except Exception:
+                logger.exception("No se pudo limpiar la sesión %s", session_id)
 
-    if not final_text:
-        return JSONResponse({"status": "error", "message": "El agente no retornó respuesta"}, status_code=500)
+        if not final_text:
+            return JSONResponse({"status": "error", "message": "El agente no retornó respuesta"}, status_code=500)
 
-    try:
-        result = json.loads(final_text)
-        if isinstance(result, dict):
-            result.setdefault("status", "ok")
-        return JSONResponse(result)
-    except json.JSONDecodeError:
-        return JSONResponse({"status": "ok", "result": final_text})
+        try:
+            result = json.loads(final_text)
+            if isinstance(result, dict):
+                result.setdefault("status", "ok")
+            span.set_attribute("output.value", json.dumps(result, ensure_ascii=False)[:2000])
+            return JSONResponse(result)
+        except json.JSONDecodeError:
+            span.set_attribute("output.value", final_text[:2000])
+            return JSONResponse({"status": "ok", "result": final_text})
 
 
 @app.post("/a2a/job_description")

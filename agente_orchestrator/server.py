@@ -20,17 +20,23 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional
 
-import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
-from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
-from google.genai import types
-from pydantic import BaseModel
 
 load_dotenv(override=True)
+
+from observability import init_observability  # noqa: E402 — must precede google.adk
+init_observability("recruiting_orchestrator")
+
+import uvicorn  # noqa: E402
+from fastapi import FastAPI, HTTPException  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import StreamingResponse  # noqa: E402
+from google.adk.runners import Runner  # noqa: E402
+from google.adk.sessions import InMemorySessionService  # noqa: E402
+from google.genai import types  # noqa: E402
+from opentelemetry import trace  # noqa: E402
+from pydantic import BaseModel  # noqa: E402
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -40,6 +46,8 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, ".")
 
 from agent import root_agent  # noqa: E402
+
+_tracer = trace.get_tracer(__name__)
 
 APP_NAME = "recruiting_orchestrator"
 USER_ID  = "frontend_user"
@@ -247,40 +255,43 @@ async def stream_chat(request_id: str) -> StreamingResponse:
 
         content = _build_adk_content(message, file)
 
-        try:
-            async for event in runner.run_async(
-                user_id=USER_ID, session_id=session_id, new_message=content
-            ):
-                if not event.content or not event.content.parts:
-                    continue
+        with _tracer.start_as_current_span(f"agent.{APP_NAME}") as span:
+            span.set_attribute("input.value", message[:2000])
+            try:
+                async for event in runner.run_async(
+                    user_id=USER_ID, session_id=session_id, new_message=content
+                ):
+                    if not event.content or not event.content.parts:
+                        continue
 
-                for part in event.content.parts:
-                    result = _extract_step_from_function_call(part)
-                    if result:
-                        agent_name, action = result
-                        logger.info("Tool call → %s (%s)", agent_name, action)
-                        yield _sse_step(agent_name, "running", f"Consultando {agent_name}: {action}")
+                    for part in event.content.parts:
+                        result = _extract_step_from_function_call(part)
+                        if result:
+                            agent_name, action = result
+                            logger.info("Tool call → %s (%s)", agent_name, action)
+                            yield _sse_step(agent_name, "running", f"Consultando {agent_name}: {action}")
 
-                    result = _extract_step_from_function_response(part)
-                    if result:
-                        agent_name, step_status, msg = result
-                        logger.info("Tool response ← %s (%s): %s", agent_name, step_status, msg[:80])
-                        yield _sse_step(agent_name, step_status, msg)
+                        result = _extract_step_from_function_response(part)
+                        if result:
+                            agent_name, step_status, msg = result
+                            logger.info("Tool response ← %s (%s): %s", agent_name, step_status, msg[:80])
+                            yield _sse_step(agent_name, step_status, msg)
 
-                if event.is_final_response():
-                    text = next(
-                        (p.text for p in event.content.parts if getattr(p, "text", None)),
-                        None,
-                    )
-                    if text:
-                        logger.info("Respuesta final (%d chars)", len(text))
-                        yield _sse_final(text)
+                    if event.is_final_response():
+                        text = next(
+                            (p.text for p in event.content.parts if getattr(p, "text", None)),
+                            None,
+                        )
+                        if text:
+                            logger.info("Respuesta final (%d chars)", len(text))
+                            span.set_attribute("output.value", text[:2000])
+                            yield _sse_final(text)
 
-        except asyncio.CancelledError:
-            logger.info("Stream cancelado por el cliente (request_id=%s)", request_id)
-        except Exception as exc:
-            logger.error("Error en stream: %s", exc, exc_info=True)
-            yield _sse_error("ORCHESTRATOR_ERROR", str(exc))
+            except asyncio.CancelledError:
+                logger.info("Stream cancelado por el cliente (request_id=%s)", request_id)
+            except Exception as exc:
+                logger.error("Error en stream: %s", exc, exc_info=True)
+                yield _sse_error("ORCHESTRATOR_ERROR", str(exc))
 
     return StreamingResponse(
         generate(),
