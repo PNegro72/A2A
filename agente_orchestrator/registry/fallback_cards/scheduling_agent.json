@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Schedules meetings and interviews. Queries participants' Google Calendar availability, proposes free slots within a given time window, and creates confirmed events with an auto-generated Google Meet link. All datetimes in UTC.",
   "when_to_use": "When the user wants to schedule, book, arrange, check availability for, or confirm a meeting, interview, call, or calendar event.",
-  "webhook_url": " https://julian-acn.app.n8n.cloud/webhook/scheduling-agent",
+  "webhook_url": "http://localhost:8004/scheduling-agent",
   "http_method": "POST",
   "actions": [
     {

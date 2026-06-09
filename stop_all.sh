@@ -15,7 +15,7 @@ if [[ -f "$PIDS_FILE" ]]; then
     echo "Done."
 else
     echo "No PID file found. Killing by port..."
-    for port in 8000 8001 8002 8003 8080 4200; do
+    for port in 8000 8001 8002 8003 8004 8080 4200; do
         pid=$(lsof -ti :$port 2>/dev/null || true)
         if [[ -n "$pid" ]]; then
             echo "  Killing port $port (PID $pid)"

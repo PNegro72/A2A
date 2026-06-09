@@ -23,6 +23,7 @@ readonly AGENTS=(
     "job_description:8001:$SCRIPT_DIR/agente_job_description:.venv/bin/python server.py"
     "busquedas_internas:8002:$SCRIPT_DIR/agente_busquedas_internas:.venv/bin/python server.py"
     "entrevistas:8003:$SCRIPT_DIR/agente_entrevistas:.venv/bin/python server.py"
+    "scheduling:8004:$SCRIPT_DIR/agente_scheduling:.venv/bin/python server.py"
     "busquedas_externas:8080:$SCRIPT_DIR/agente_busquedas_externas:.venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port 8080"
 )
 readonly FRONTEND_DIR="$SCRIPT_DIR/frontend"
@@ -66,7 +67,7 @@ wait_for_health() {
 # Pre-flight: clear ports
 # ---------------------------------------------------------------------------
 info "Clearing ports..."
-for port in 8000 8001 8002 8003 8080 $FRONTEND_PORT; do
+for port in 8000 8001 8002 8003 8004 8080 $FRONTEND_PORT; do
     clear_port $port
 done
 sleep 2
@@ -164,6 +165,7 @@ info "  Orchestr:  http://localhost:8000"
 info "  JD Agent:  http://localhost:8001"
 info "  Int Agent: http://localhost:8002"
 info "  Ent Agent: http://localhost:8003"
+info "  Sch Agent: http://localhost:8004"
 info "  Ext Agent: http://localhost:8080"
 info ""
 info "Logs: $LOG_DIR/*.log"
