@@ -65,6 +65,12 @@ def _build_service():
     return build("calendar", "v3", credentials=get_credentials(), cache_discovery=False)
 
 
+def get_organizer_email() -> str:
+    """Email del organizador = dueño del calendario primario de la cuenta autenticada."""
+    service = _build_service()
+    return service.calendars().get(calendarId="primary").execute()["id"]
+
+
 def _to_ms(iso_ts: str) -> int:
     """Convierte un timestamp ISO 8601 (con sufijo Z o offset) a epoch ms."""
     from datetime import datetime
@@ -75,19 +81,23 @@ def _to_ms(iso_ts: str) -> int:
 
 def get_freebusy(participants: list[str], window_start: str, window_end: str) -> list[dict]:
     """
-    Consulta la disponibilidad de todos los participantes en la ventana dada.
+    Consulta la disponibilidad del organizador + los invitados en la ventana dada.
 
-    Llama a calendar.freebusy().query() con cada participante como item, unifica
-    los bloques ocupados de todos, los ordena por inicio y fusiona los solapados.
+    `participants` son los invitados. Se agrega "primary" (el calendario del
+    organizador autenticado) para que los slots propuestos contemplen también su
+    agenda. Llama a calendar.freebusy().query() con todos como items, unifica los
+    bloques ocupados, los ordena por inicio y fusiona los solapados.
 
     Retorna una lista de {"start": epoch_ms, "end": epoch_ms} ordenada y sin solapes.
     """
     service = _build_service()
 
+    # "primary" = organizador (cuenta autenticada); el resto son los invitados.
+    calendar_ids = ["primary"] + list(participants)
     body = {
         "timeMin": window_start,
         "timeMax": window_end,
-        "items": [{"id": email} for email in participants],
+        "items": [{"id": cal_id} for cal_id in calendar_ids],
     }
     response = service.freebusy().query(body=body).execute()
 
@@ -120,10 +130,11 @@ def create_event(
     location_or_link: str = "",
 ) -> dict:
     """
-    Crea un evento en el calendario del usuario autenticado (primary).
+    Crea un evento en el calendario del usuario autenticado (primary), que queda
+    como organizador del evento.
 
-    Todos los participants se agregan como attendees. Se solicita un link de
-    Google Meet vía conferenceData. Envía notificaciones a todos (sendUpdates=all).
+    `participants` son los invitados: se agregan como attendees. Se solicita un
+    link de Google Meet vía conferenceData. Envía notificaciones (sendUpdates=all).
 
     Retorna el evento creado por la API (incluye id, htmlLink, hangoutLink,
     summary, start, end).

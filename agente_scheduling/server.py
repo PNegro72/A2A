@@ -75,7 +75,7 @@ AGENT_CARD = {
             ),
             "request_schema": {
                 "action": "propose_slots",
-                "participants": ["email1@example.com", "email2@example.com"],
+                "participants": ["invitee@example.com"],
                 "window": {"start": "ISO8601 UTC", "end": "ISO8601 UTC"},
                 "duration_minutes": "number > 0",
             },
@@ -88,15 +88,15 @@ AGENT_CARD = {
         {
             "name": "confirm_booking",
             "description": (
-                "Creates an event in the first participant's calendar (the owner) and "
-                "invites the rest. Automatically generates a Google Meet link. Use this "
-                "when the user has already chosen a specific slot, either by requesting "
-                "it directly or by selecting one of the slots previously proposed by "
-                "'propose_slots'."
+                "Creates an event in the scheduling account's calendar (the organizer) "
+                "and invites the participants. Automatically generates a Google Meet "
+                "link. Use this when the user has already chosen a specific slot, either "
+                "by requesting it directly or by selecting one of the slots previously "
+                "proposed by 'propose_slots'."
             ),
             "request_schema": {
                 "action": "confirm_booking",
-                "participants": ["email1@example.com", "email2@example.com"],
+                "participants": ["invitee@example.com"],
                 "chosen_slot": {"start": "ISO8601 UTC", "end": "ISO8601 UTC"},
                 "meeting_title": "string",
                 "location_or_link": "string (optional)",
@@ -110,8 +110,10 @@ AGENT_CARD = {
     "conventions": {
         "datetime_format": "ISO 8601 UTC with Z suffix (e.g., '2026-04-21T14:00:00Z')",
         "participants_rules": (
-            "Array of emails, minimum 2. The FIRST email is the 'owner': the event is "
-            "created in their calendar. The rest are invitees."
+            "Array of INVITEE emails, minimum 1. The organizer is the authenticated "
+            "scheduling account and is added automatically — do NOT include it in this "
+            "list. Never fabricate or guess emails: only include addresses the user "
+            "explicitly provided. If no invitee email is known, ask the user for it."
         ),
         "state": (
             "Stateless: each request is independent. The orchestrator must remember "
