@@ -50,7 +50,7 @@ def main() -> None:
     with open(token_file, "w", encoding="utf-8") as token:
         token.write(creds.to_json())
 
-    print(f"✅ Token guardado en '{token_file}'. Ya podés correr: python server.py")
+    print(f"[OK] Token guardado en '{token_file}'. Ya podes correr: python server.py")
 
 
 if __name__ == "__main__":
