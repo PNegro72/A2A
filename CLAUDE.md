@@ -25,6 +25,10 @@ Job Description      Busquedas          Entrevistas
                   transformers)         Busquedas Externas
                                      (pipeline: Himalayas MCP
                                       + Tavily MCP + GitHub API)
+                                        Agente
+                                        Scheduling
+                                     (Flask + Google
+                                      Calendar OAuth2)
 ```
 
 **Communication protocols:**
@@ -103,7 +107,10 @@ Each agent needs a `.env` file. Copy `.env.example` as a starting point.
 | `TAVILY_API_KEY` | Busquedas Externas |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Legacy healthcare agents (Vertex AI) |
 | `OPENAI_API_KEY` | Legacy provider agent |
-| `SCHEDULING_AGENT_WEBHOOK_URL` | Orchestrator → n8n scheduling |
+| `SCHEDULING_AGENT_WEBHOOK_URL` | Orchestrator → Scheduling agent (now the local Python agent at `http://localhost:8004/scheduling-agent`, no longer n8n) |
+| `SCHEDULING_AGENT_PORT` | Scheduling agent (default: `8004`) |
+| `GOOGLE_CREDENTIALS_FILE` | Scheduling agent (OAuth2 client secrets, default: `credentials.json`) |
+| `GOOGLE_TOKEN_FILE` | Scheduling agent (OAuth2 token, default: `token.json`) |
 | `RECRUITER_EMAIL` | Orchestrator (email drafts) |
 
 Frontend config is in `frontend/src/environments/environment.ts` — set `orchestratorBaseUrl` to point to the running orchestrator.

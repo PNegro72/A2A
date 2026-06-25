@@ -35,13 +35,12 @@ fi
 # agente de búsquedas internas: el backend habla con Qdrant Cloud, y el server
 # MCP expone la tool `search` que el agente consume por HTTP en :8006/mcp.
 readonly AGENTS=(
-    "orchestrator:8000:$SCRIPT_DIR/agente_orchestrator:health:@PY@ -m uvicorn server:app --host 0.0.0.0 --port 8000"
-    "job_description:8001:$SCRIPT_DIR/agente_job_description:health:@PY@ server.py"
-    "busquedas_internas:8002:$SCRIPT_DIR/agente_busquedas_internas:health:@PY@ server.py"
-    "entrevistas:8003:$SCRIPT_DIR/agente_entrevistas:health:@PY@ server.py"
-    "rag_backend:8004:$SCRIPT_DIR/Qdrant:health:@PY@ -m uvicorn api.main:app --host 127.0.0.1 --port 8004"
-    "mcp_server:8006:$SCRIPT_DIR/MCP:mcp:MCP_TRANSPORT=http MCP_HOST=127.0.0.1 MCP_PORT=8006 RAGAAS_URL=http://127.0.0.1:8004 @PY@ mcp_server.py"
-    "busquedas_externas:8080:$SCRIPT_DIR/agente_busquedas_externas:health:@PY@ -m uvicorn server:app --host 0.0.0.0 --port 8080"
+    "orchestrator:8000:$SCRIPT_DIR/agente_orchestrator:.venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port 8000"
+    "job_description:8001:$SCRIPT_DIR/agente_job_description:.venv/bin/python server.py"
+    "busquedas_internas:8002:$SCRIPT_DIR/agente_busquedas_internas:.venv/bin/python server.py"
+    "entrevistas:8003:$SCRIPT_DIR/agente_entrevistas:.venv/bin/python server.py"
+    "scheduling:8004:$SCRIPT_DIR/agente_scheduling:.venv/bin/python server.py"
+    "busquedas_externas:8080:$SCRIPT_DIR/agente_busquedas_externas:.venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port 8080"
 )
 readonly ALL_PORTS=(8000 8001 8002 8003 8004 8006 8080)
 readonly FRONTEND_DIR="$SCRIPT_DIR/frontend"
@@ -106,9 +105,9 @@ wait_for_ready() {
 # ---------------------------------------------------------------------------
 # Pre-flight: clear ports
 # ---------------------------------------------------------------------------
-info "Liberando puertos..."
-for port in "${ALL_PORTS[@]}" "$FRONTEND_PORT"; do
-    clear_port "$port"
+info "Clearing ports..."
+for port in 8000 8001 8002 8003 8004 8080 $FRONTEND_PORT; do
+    clear_port $port
 done
 sleep 2
 ok "Puertos liberados"
@@ -198,14 +197,13 @@ info ""
 info "========================================"
 ok  "SAPE corriendo!"
 info "========================================"
-[[ "$SKIP_FRONTEND" == "false" ]] && info "  Frontend:     http://localhost:$FRONTEND_PORT"
-info "  Orchestrator: http://localhost:8000"
-info "  JD Agent:     http://localhost:8001"
-info "  Int Agent:    http://localhost:8002"
-info "  Ent Agent:    http://localhost:8003"
-info "  RAG Backend:  http://localhost:8004  (Qdrant/, consumido por el MCP)"
-info "  MCP Server:   http://localhost:8006/mcp  (RAGaaS, consumido por Int Agent)"
-info "  Ext Agent:    http://localhost:8080"
+[[ "$SKIP_FRONTEND" == "false" ]] && info "  Frontend:  http://localhost:$FRONTEND_PORT"
+info "  Orchestr:  http://localhost:8000"
+info "  JD Agent:  http://localhost:8001"
+info "  Int Agent: http://localhost:8002"
+info "  Ent Agent: http://localhost:8003"
+info "  Sch Agent: http://localhost:8004"
+info "  Ext Agent: http://localhost:8080"
 info ""
 info "Logs: $LOG_DIR/*.log"
 info ""

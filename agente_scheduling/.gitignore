@@ -1,0 +1,3 @@
+# OAuth2 secrets — never commit
+credentials.json
+token.json

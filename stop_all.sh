@@ -10,19 +10,23 @@ LOG_DIR="/tmp/sape_logs"
 PIDS_FILE="$LOG_DIR/agent_pids.txt"
 PORTS=(8000 8001 8002 8003 8004 8006 8080 4200)
 
-pids_on_port() {
-    local port=$1
-    netstat -ano 2>/dev/null \
-        | awk -v patt=":${port}\$" '$4=="LISTENING" && $2 ~ patt {print $5}' \
-        | sort -u
-}
-
-echo "Frenando servicios SAPE..."
-for port in "${PORTS[@]}"; do
-    for pid in $(pids_on_port "$port"); do
-        if [[ -n "$pid" && "$pid" != "0" ]]; then
-            echo "  Matando puerto $port (PID $pid)"
-            taskkill //F //T //PID "$pid" >/dev/null 2>&1 || true
+if [[ -f "$PIDS_FILE" ]]; then
+    echo "Stopping SAPE agents..."
+    while IFS=':' read -r port name pid; do
+        if [[ -n "$pid" ]] && kill -0 $pid 2>/dev/null; then
+            echo "  Killing $name (PID $pid, port $port)"
+            kill $pid 2>/dev/null || true
+        fi
+    done < "$PIDS_FILE"
+    rm -f "$PIDS_FILE"
+    echo "Done."
+else
+    echo "No PID file found. Killing by port..."
+    for port in 8000 8001 8002 8003 8004 8080 4200; do
+        pid=$(lsof -ti :$port 2>/dev/null || true)
+        if [[ -n "$pid" ]]; then
+            echo "  Killing port $port (PID $pid)"
+            kill $pid 2>/dev/null || true
         fi
     done
 done
