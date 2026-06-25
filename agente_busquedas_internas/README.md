@@ -40,10 +40,10 @@ agente_busquedas_internas/
 │       ├── __init__.py                         # Exporta `agent` (convención ADK)
 │       ├── agent.py                            # Definición del agente ADK
 │       ├── agent-prompt.txt                    # Prompt del sistema
-│       ├── cvs.py                              # Lectura y búsqueda semántica de CVs (.pptx)
+│       ├── ragaas_client.py                    # Cliente MCP → búsqueda semántica sobre Qdrant
 │       ├── workday_api_service.py              # Placeholder integración Workday [STUB]
 │       └── tools/
-│           └── consultar_ats.py                # Herramienta ATS (delega en cvs.py)
+│           └── consultar_ats.py                # Herramienta ATS (usa ragaas_client)
 ├── tests/
 │   ├── conftest.py
 │   ├── test_agente_job_description.py

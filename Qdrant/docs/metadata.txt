@@ -1,0 +1,35 @@
+Buena observación. La metadata no tiene una key "metadata" — está almacenada flat (plana) directamente en el      
+  payload. Mirá cómo se arma en qdrant_manager.py:                    
+
+  Read 1 file (ctrl+o to expand)                                                                                    
+                                                                      
+● Ahí está — **chunk.metadata usa el operador ** que desempaqueta el dict de metadata y lo mezcla flat con text e   
+  ingested_at. Entonces un punto en Qdrant queda así:                                                               
+                                                                      
+  {                                                                                                                 
+    "id": "550e8400-e29b-41d4-a716-446655440000",                                                                   
+    "vector": { "dense": [0.023, -0.11, ...] },                                                                     
+    "payload": {                                                                                                    
+      "text":         "Machine learning is a subset of AI...",
+      "ingested_at":  "2025-04-15T14:32:00Z",
+      "source_file":  "intro_to_ml.pdf",
+      "source_path":  "C:/Users/.../data/raw/intro_to_ml.pdf",
+      "file_type":    "pdf",
+      "chunk_index":  3,
+      "section":      "Chapter 1 > Overview",
+      "page":         2,
+      "char_count":   487
+    }
+  }
+
+  Todo al mismo nivel — no hay un key "metadata" anidado. Esto es lo estándar en Qdrant porque permite filtrar
+  directamente por cualquier campo:
+
+  # Filtrar por archivo fuente
+  --filter source_file=intro_to_ml.pdf
+
+  # Filtrar por página
+  --filter page=2
+
+  # Filtrar por tipo de archivo
+  --filter file_type=pdf

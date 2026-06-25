@@ -1,7 +1,14 @@
 #!/bin/bash
-# Stop all SAPE agents and frontend
+# Stop all SAPE agents and frontend (Git Bash en Windows: kill por puerto).
+#
+# En Windows los PID de bash (MSYS) no coinciden con los PID de Windows, así que
+# el método confiable es matar por puerto: netstat localiza el PID real y
+# taskkill lo termina (con su árbol de procesos).
+set -uo pipefail
+
 LOG_DIR="/tmp/sape_logs"
 PIDS_FILE="$LOG_DIR/agent_pids.txt"
+PORTS=(8000 8001 8002 8003 8004 8006 8080 4200)
 
 if [[ -f "$PIDS_FILE" ]]; then
     echo "Stopping SAPE agents..."
@@ -22,5 +29,7 @@ else
             kill $pid 2>/dev/null || true
         fi
     done
-fi
-echo "All stopped."
+done
+
+rm -f "$PIDS_FILE"
+echo "Listo."

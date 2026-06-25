@@ -34,7 +34,8 @@ _now_utc_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 _tz_name = os.environ["DEFAULT_TIMEZONE"]
 _now_local_iso = datetime.now(ZoneInfo(_tz_name)).strftime("%Y-%m-%dT%H:%M:%S")
 _registry_summary = get_registry_summary_for_prompt(_registry)
-_instruction = build_system_instruction(_registry_summary, _now_utc_iso, _tz_name, _now_local_iso)
+_recruiter_email = os.environ.get("RECRUITER_EMAIL", "")
+_instruction = build_system_instruction(_registry_summary, _now_utc_iso, _tz_name, _now_local_iso, _recruiter_email)
 
 # --- Agent definition ---
 
