@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG System — Technical Presentation</title>
+  <style>
+    /* ── Reset & base ────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      line-height: 1.7;
+    }
+
+    /* ── Typography ──────────────────────────────── */
+    h1 { font-size: 2.8rem; font-weight: 700; letter-spacing: -0.5px; }
+    h2 { font-size: 1.8rem; font-weight: 600; margin-bottom: .6rem; }
+    h3 { font-size: 1.25rem; font-weight: 600; margin-bottom: .4rem; color: #79c0ff; }
+    p  { margin-bottom: 1rem; color: #c9d1d9; }
+    a  { color: #58a6ff; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code {
+      font-family: 'Cascadia Code', 'Fira Code', monospace;
+      background: #161b22;
+      color: #a5f3a5;
+      padding: .15em .4em;
+      border-radius: 4px;
+      font-size: .88em;
+    }
+    pre {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1.2rem 1.4rem;
+      overflow-x: auto;
+      margin: 1rem 0;
+    }
+    pre code { background: none; padding: 0; color: #e6edf3; font-size: .85rem; }
+
+    /* ── Layout ──────────────────────────────────── */
+    .container { max-width: 1040px; margin: 0 auto; padding: 0 2rem; }
+
+    /* ── Hero ────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+      border-bottom: 1px solid #30363d;
+      padding: 5rem 0 4rem;
+      text-align: center;
+    }
+    .hero .badge {
+      display: inline-block;
+      background: #1f6feb;
+      color: #fff;
+      font-size: .75rem;
+      font-weight: 600;
+      padding: .3em .8em;
+      border-radius: 20px;
+      letter-spacing: .5px;
+      margin-bottom: 1.2rem;
+      text-transform: uppercase;
+    }
+    .hero h1 { margin-bottom: .6rem; }
+    .hero p { font-size: 1.1rem; max-width: 600px; margin: 0 auto 2rem; }
+    .hero-pills { display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem; }
+    .pill {
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 20px;
+      padding: .35em 1em;
+      font-size: .82rem;
+      color: #8b949e;
+    }
+
+    /* ── Nav ─────────────────────────────────────── */
+    .nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(13,17,23,.95);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid #21262d;
+      padding: .8rem 0;
+    }
+    .nav ul { display: flex; flex-wrap: wrap; gap: 1.5rem; list-style: none; padding: 0; }
+    .nav a { font-size: .87rem; color: #8b949e; transition: color .2s; }
+    .nav a:hover { color: #e6edf3; text-decoration: none; }
+
+    /* ── Sections ────────────────────────────────── */
+    section { padding: 4rem 0; border-bottom: 1px solid #21262d; }
+    section:last-child { border-bottom: none; }
+    .section-label {
+      font-size: .75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #58a6ff;
+      font-weight: 600;
+      margin-bottom: .4rem;
+    }
+
+    /* ── Step timeline ───────────────────────────── */
+    .timeline { position: relative; margin-top: 2.5rem; }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 22px;
+      top: 0; bottom: 0;
+      width: 2px;
+      background: linear-gradient(to bottom, #1f6feb, #3fb950, #f78166);
+    }
+    .step {
+      display: flex;
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+      position: relative;
+    }
+    .step-num {
+      flex-shrink: 0;
+      width: 46px; height: 46px;
+      border-radius: 50%;
+      background: #1f6feb;
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.1rem;
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1;
+      box-shadow: 0 0 0 4px #0d1117;
+    }
+    .step:nth-child(2) .step-num { background: #238636; }
+    .step:nth-child(3) .step-num { background: #9a3bdb; }
+    .step:nth-child(4) .step-num { background: #b45309; }
+    .step:nth-child(5) .step-num { background: #1f6feb; }
+    .step:nth-child(6) .step-num { background: #238636; }
+    .step-body { flex: 1; padding-top: .4rem; }
+
+    /* ── Cards ───────────────────────────────────── */
+    .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; margin-top: 2rem; }
+    .card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 10px;
+      padding: 1.4rem;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .card:hover { border-color: #58a6ff; box-shadow: 0 0 0 1px #58a6ff22; }
+    .card-icon { font-size: 1.8rem; margin-bottom: .6rem; }
+    .card h3 { color: #e6edf3; }
+
+    /* ── Tables ──────────────────────────────────── */
+    table { width: 100%; border-collapse: collapse; margin: 1.2rem 0; font-size: .87rem; }
+    th { background: #161b22; color: #8b949e; font-weight: 600; text-align: left; padding: .6rem 1rem; border-bottom: 2px solid #30363d; }
+    td { padding: .55rem 1rem; border-bottom: 1px solid #21262d; color: #c9d1d9; }
+    tr:hover td { background: #161b22; }
+
+    /* ── Decision boxes ──────────────────────────── */
+    .decision {
+      background: #161b22;
+      border-left: 3px solid #1f6feb;
+      border-radius: 0 8px 8px 0;
+      padding: 1rem 1.2rem;
+      margin: 1rem 0;
+    }
+    .decision.green  { border-color: #3fb950; }
+    .decision.purple { border-color: #9a3bdb; }
+    .decision.yellow { border-color: #d29922; }
+    .decision strong { color: #e6edf3; }
+
+    /* ── File tree ───────────────────────────────── */
+    .filetree {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 1.2rem 1.6rem;
+      font-family: monospace;
+      font-size: .84rem;
+      line-height: 1.9;
+      color: #c9d1d9;
+    }
+    .filetree .dir  { color: #79c0ff; }
+    .filetree .file { color: #e6edf3; }
+    .filetree .note { color: #6e7681; }
+
+    /* ── Flow diagram ────────────────────────────── */
+    .flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: .5rem;
+      margin: 1.5rem 0;
+    }
+    .flow-box {
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: .5rem 1rem;
+      font-size: .85rem;
+      font-weight: 500;
+    }
+    .flow-box.highlight { background: #1f3a6e; border-color: #1f6feb; color: #79c0ff; }
+    .flow-arrow { color: #6e7681; font-size: 1.2rem; }
+
+    /* ── Footer ──────────────────────────────────── */
+    footer {
+      text-align: center;
+      padding: 3rem 0;
+      color: #484f58;
+      font-size: .82rem;
+    }
+
+    /* ── Scrollbar ───────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #0d1117; }
+    ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     HERO
+════════════════════════════════════════════════ -->
+<header class="hero">
+  <div class="container">
+    <span class="badge">POC — Vector Database</span>
+    <h1>RAG System on Qdrant</h1>
+    <p>A production-quality ingestion and retrieval pipeline for a Retrieval-Augmented Generation agent, built on Qdrant Cloud free tier.</p>
+    <div class="hero-pills">
+      <span class="pill">Python 3.10+</span>
+      <span class="pill">Qdrant Cloud</span>
+      <span class="pill">sentence-transformers</span>
+      <span class="pill">Structured Chunking</span>
+      <span class="pill">Hybrid Search</span>
+      <span class="pill">Embedding Cache</span>
+      <span class="pill">CLI Tools</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── Nav ───────────────────────────────────────── -->
+<nav class="nav">
+  <div class="container">
+    <ul>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#steps">Step by Step</a></li>
+      <li><a href="#chunking">Chunking</a></li>
+      <li><a href="#embeddings">Embeddings</a></li>
+      <li><a href="#qdrant">Qdrant Schema</a></li>
+      <li><a href="#scripts">Scripts</a></li>
+      <li><a href="#quickstart">Quick Start</a></li>
+      <li><a href="#decisions">Decisions</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ════════════════════════════════════════════════
+     OVERVIEW
+════════════════════════════════════════════════ -->
+<section id="overview">
+  <div class="container">
+    <div class="section-label">Architecture</div>
+    <h2>System Overview</h2>
+    <p>
+      The system takes raw documents from a local folder, transforms them into structured vector embeddings,
+      stores them in Qdrant Cloud with rich metadata, and exposes a query interface that retrieves
+      the top-N most semantically relevant chunks for any natural-language question.
+    </p>
+
+    <!-- Pipeline flow -->
+    <div class="flow">
+      <div class="flow-box">📂 Raw Files<br><small>PDF · DOCX · TXT · XLSX…</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box highlight">Loaders<br><small>pymupdf · python-docx · pandas</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box highlight">Structured Chunker<br><small>Parse → Group → Overlap</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box highlight">Embedder<br><small>Dense or Hybrid</small></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">☁️ Qdrant Cloud<br><small>Vectors + Payload</small></div>
+    </div>
+
+    <!-- File structure -->
+    <h3 style="margin-top:2rem">Project Layout</h3>
+    <div class="filetree">
+      <span class="dir">Qdrant/</span><br>
+      ├── <span class="file">.env.example</span>     <span class="note">← copy → .env, fill QDRANT_URL and API_KEY</span><br>
+      ├── <span class="file">requirements.txt</span><br>
+      ├── <span class="dir">data/raw/</span>          <span class="note">← drop documents here</span><br>
+      ├── <span class="dir">cache/</span>             <span class="note">← embedding cache (auto-created)</span><br>
+      ├── <span class="dir">src/</span><br>
+      │   ├── <span class="file">config.py</span>     <span class="note">← all settings from env vars</span><br>
+      │   ├── <span class="file">loaders.py</span>    <span class="note">← per-format document loaders</span><br>
+      │   ├── <span class="file">chunker.py</span>    <span class="note">← structured-based chunking</span><br>
+      │   ├── <span class="file">embeddings.py</span> <span class="note">← DenseEmbedder + HybridEmbedder</span><br>
+      │   ├── <span class="file">qdrant_manager.py</span> <span class="note">← Qdrant wrapper (upsert, search)</span><br>
+      │   └── <span class="file">cache_manager.py</span>  <span class="note">← diskcache singleton</span><br>
+      └── <span class="dir">scripts/</span><br>
+          ├── <span class="file">ingest.py</span>     <span class="note">← run the ingestion pipeline</span><br>
+          ├── <span class="file">manage.py</span>     <span class="note">← manage the Qdrant collection</span><br>
+          └── <span class="file">query.py</span>      <span class="note">← query and retrieve chunks</span><br>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     STEP BY STEP
+════════════════════════════════════════════════ -->
+<section id="steps">
+  <div class="container">
+    <div class="section-label">Pipeline</div>
+    <h2>Step-by-Step: How It Works</h2>
+
+    <div class="timeline">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>File Discovery &amp; Loading</h3>
+          <p>
+            The ingestion script scans <code>data/raw/</code> recursively and dispatches each file
+            to the appropriate loader based on its extension. Each loader returns a list of
+            <code>RawPage</code> objects — one per PDF page, Excel sheet, etc. — each carrying
+            the extracted text and source metadata (filename, file type, page number).
+          </p>
+          <table>
+            <thead><tr><th>Format</th><th>Library</th><th>Special handling</th></tr></thead>
+            <tbody>
+              <tr><td>.pdf</td><td>pymupdf (fitz)</td><td>Page-level extraction; preserves page number</td></tr>
+              <tr><td>.docx</td><td>python-docx</td><td>Paragraphs + tables tagged [TABLE]…[/TABLE]</td></tr>
+              <tr><td>.xlsx / .xls</td><td>pandas + openpyxl</td><td>Per-sheet pages; header row preserved</td></tr>
+              <tr><td>.csv</td><td>pandas</td><td>Column headers included as first row</td></tr>
+              <tr><td>.html</td><td>beautifulsoup4</td><td>Scripts/styles removed before extraction</td></tr>
+              <tr><td>.txt / .md</td><td>stdlib</td><td>UTF-8 direct read</td></tr>
+              <tr><td>.json</td><td>stdlib</td><td>Pretty-printed representation</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Structured-Based Chunking</h3>
+          <p>
+            Raw pages are parsed into typed structural elements, grouped under headings, then split
+            or merged to fit the target chunk size. See the <a href="#chunking">Chunking section</a> for full details.
+          </p>
+          <p>
+            Each chunk carries a rich metadata payload: section breadcrumb, page number,
+            source file, character count, and chunk index. This metadata is stored alongside the
+            vector in Qdrant and can be used to filter search results.
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Embedding Generation (with Cache)</h3>
+          <p>
+            Each chunk's text is passed to the embedder. Before calling the model, the cache is
+            checked: if a SHA-256 hash of the text already exists in the disk cache, the stored
+            vector is returned immediately. Only cache misses invoke the model.
+          </p>
+          <div class="flow" style="margin:.8rem 0">
+            <div class="flow-box">Chunk text</div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-box">SHA-256 key</div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-box highlight">Cache hit?</div>
+            <div class="flow-arrow">→ Yes →</div>
+            <div class="flow-box">Return cached vector</div>
+          </div>
+          <div class="flow">
+            <div class="flow-box" style="opacity:0;width:90px">.</div>
+            <div class="flow-arrow" style="opacity:0">→</div>
+            <div class="flow-box" style="opacity:0;width:70px">.</div>
+            <div class="flow-arrow" style="opacity:0">→</div>
+            <div class="flow-box highlight">Cache miss</div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-box">Model inference</div>
+            <div class="flow-arrow">→</div>
+            <div class="flow-box">Store in cache + return</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Upload to Qdrant</h3>
+          <p>
+            Chunks and their embeddings are batched and uploaded to the Qdrant collection as
+            <code>PointStruct</code> objects. Each point has:
+          </p>
+          <ul style="color:#c9d1d9; margin-left:1.5rem; margin-bottom:1rem">
+            <li>A UUID as the point ID</li>
+            <li>Named vector(s): <code>"dense"</code> (and <code>"sparse"</code> in hybrid mode)</li>
+            <li>Full metadata payload (text, source, section, page, timestamps, etc.)</li>
+          </ul>
+          <p>
+            Already-ingested files are skipped on subsequent runs (tracked by <code>source_file</code>
+            in the payload). Use <code>--force</code> to re-ingest or <code>--recreate</code> to start fresh.
+          </p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3>Query &amp; Retrieval</h3>
+          <p>
+            A natural-language query is embedded using the same model used at ingestion time.
+            Qdrant performs an approximate nearest-neighbour search and returns the top-K most
+            similar chunks with their cosine similarity scores (0–1).
+          </p>
+          <p>
+            In hybrid mode, Qdrant runs <strong>two searches in parallel</strong> (dense and sparse),
+            then fuses the ranked lists using <strong>Reciprocal Rank Fusion (RRF)</strong> —
+            a parameter-free method that gives good results without manual tuning.
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     CHUNKING
+════════════════════════════════════════════════ -->
+<section id="chunking">
+  <div class="container">
+    <div class="section-label">Core Component</div>
+    <h2>Structured-Based Chunking</h2>
+
+    <p>
+      This is the most impactful design choice in the system.
+      Instead of splitting text every N characters (naive), the chunker
+      <strong>respects the document's own structure</strong>.
+    </p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🚫</div>
+        <h3>What NOT to do (naive)</h3>
+        <p>Fixed-size splitting every 512 characters. Fast to implement, but:</p>
+        <ul style="color:#8b949e; margin-left:1.2rem; font-size:.9rem">
+          <li>Cuts mid-sentence</li>
+          <li>Separates table header from rows</li>
+          <li>Merges unrelated sections</li>
+          <li>Poor retrieval quality</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div class="card-icon">✅</div>
+        <h3>Structured approach (used here)</h3>
+        <p>3-phase algorithm that follows the document hierarchy:</p>
+        <ul style="color:#8b949e; margin-left:1.2rem; font-size:.9rem">
+          <li>Parse into typed elements</li>
+          <li>Group under parent headings</li>
+          <li>Split oversized sections at sentence boundaries</li>
+          <li>Add overlap between chunks</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3 style="margin-top:2rem">The 3 Phases</h3>
+
+    <div class="decision">
+      <strong>Phase 1 — Parse</strong><br>
+      Detect structural elements: <code>heading</code> (H1–H6), <code>paragraph</code>,
+      <code>table</code> (<code>[TABLE]…[/TABLE]</code>), <code>code</code> (fenced blocks),
+      <code>list</code> (bullet/numbered). Code and table blocks are never split.
+    </div>
+
+    <div class="decision green">
+      <strong>Phase 2 — Group under headings</strong><br>
+      Maintain a <em>section breadcrumb</em> (<code>"Intro &gt; Concepts &gt; Definitions"</code>).
+      Accumulate elements until the group would exceed <code>CHUNK_SIZE</code>. When the limit is
+      reached, flush the group as a chunk and start fresh under the same heading.
+    </div>
+
+    <div class="decision purple">
+      <strong>Phase 3 — Overlap context</strong><br>
+      Prepend the last <code>CHUNK_OVERLAP</code> characters of the previous chunk to the next chunk.
+      This ensures answers that straddle a chunk boundary are still retrievable.
+    </div>
+
+    <h3 style="margin-top:1.5rem">Metadata per chunk</h3>
+    <pre><code>{
+  "text":        "...chunk content...",
+  "source_file": "technical_report.pdf",
+  "source_path": "/data/raw/technical_report.pdf",
+  "file_type":   "pdf",
+  "chunk_index": 12,
+  "section":     "Results > Quantitative Analysis",
+  "page":        5,
+  "char_count":  487,
+  "ingested_at": "2025-04-15T14:32:00Z"
+}</code></pre>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     EMBEDDINGS
+════════════════════════════════════════════════ -->
+<section id="embeddings">
+  <div class="container">
+    <div class="section-label">Embeddings</div>
+    <h2>Embedding Strategies</h2>
+
+    <div class="card-grid">
+
+      <div class="card">
+        <div class="card-icon">⚡</div>
+        <h3>DenseEmbedder (default)</h3>
+        <p>
+          Uses <code>sentence-transformers/all-MiniLM-L6-v2</code>.
+          Produces 384-dimensional L2-normalised vectors.
+          Distance metric: <strong>Cosine</strong>.
+        </p>
+        <p style="font-size:.85rem; color:#8b949e">
+          Chosen for its speed + quality balance for English. Trained on
+          MS-MARCO, NLI, and other English sentence pairs.
+          ~14k sentences/sec on CPU.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">🔀</div>
+        <h3>HybridEmbedder (ready)</h3>
+        <p>
+          Dense vector <strong>+</strong> sparse BM25-lite vector.
+          The sparse part uses the <em>hash trick</em> to map tokens to integer indices
+          without needing a fixed vocabulary or corpus statistics.
+        </p>
+        <p style="font-size:.85rem; color:#8b949e">
+          Enables both semantic and keyword matching.
+          Qdrant fuses results with <strong>RRF</strong>.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">💾</div>
+        <h3>Embedding Cache</h3>
+        <p>
+          Every computed vector is stored in <code>diskcache</code> keyed by
+          <code>sha256(text) + model_name</code>. TTL: 24h. Size limit: 2 GB.
+        </p>
+        <p style="font-size:.85rem; color:#8b949e">
+          On re-ingestion runs with unchanged documents, ~97% of embeddings are
+          served from cache, reducing runtime from minutes to seconds.
+        </p>
+      </div>
+
+    </div>
+
+    <h3 style="margin-top:2rem">Why cosine similarity?</h3>
+    <p>
+      Cosine similarity measures the <em>angle</em> between two vectors, ignoring their magnitude.
+      This is ideal for semantic search because it captures <em>direction of meaning</em>, not just
+      how long the text is. Since we L2-normalise vectors before upload,
+      cosine = dot-product in Qdrant, which is faster to compute.
+    </p>
+
+    <h3>Why the hash trick for sparse vectors?</h3>
+    <div class="decision yellow">
+      <strong>Problem with standard BM25:</strong> IDF (Inverse Document Frequency) requires
+      knowing how many documents contain each term — a corpus-wide statistic. For incremental
+      ingestion, this means you'd need to re-compute all vectors every time new files are added.
+    </div>
+    <p>
+      The hash-trick approach computes a per-document TF vector with log-normalisation,
+      mapping each token to a fixed integer bucket via <code>hash(token) % VOCAB_SIZE</code>.
+      This is statistically similar to BM25's keyword recall properties without any corpus dependency.
+    </p>
+
+    <h3>Model alternatives</h3>
+    <table>
+      <thead><tr><th>Model</th><th>Dims</th><th>Speed</th><th>Quality</th><th>When to use</th></tr></thead>
+      <tbody>
+        <tr><td><code>all-MiniLM-L6-v2</code> ✓ default</td><td>384</td><td>⚡⚡⚡</td><td>⭐⭐⭐</td><td>POC, fast iteration</td></tr>
+        <tr><td><code>BAAI/bge-small-en-v1.5</code></td><td>384</td><td>⚡⚡⚡</td><td>⭐⭐⭐⭐</td><td>Better retrieval, same speed</td></tr>
+        <tr><td><code>all-mpnet-base-v2</code></td><td>768</td><td>⚡⚡</td><td>⭐⭐⭐⭐</td><td>Higher quality, 2× slower</td></tr>
+        <tr><td><code>BAAI/bge-base-en-v1.5</code></td><td>768</td><td>⚡⚡</td><td>⭐⭐⭐⭐⭐</td><td>Best quality for English RAG</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     QDRANT SCHEMA
+════════════════════════════════════════════════ -->
+<section id="qdrant">
+  <div class="container">
+    <div class="section-label">Database</div>
+    <h2>Qdrant Collection Schema</h2>
+
+    <div class="card-grid">
+      <div class="card">
+        <h3>Dense Collection</h3>
+        <pre><code>name: rag_documents
+vectors:
+  "dense":
+    size: 384
+    distance: Cosine</code></pre>
+      </div>
+      <div class="card">
+        <h3>Hybrid Collection</h3>
+        <pre><code>name: rag_documents_hybrid
+vectors:
+  "dense":
+    size: 384
+    distance: Cosine
+sparse_vectors:
+  "sparse":
+    (Qdrant SparseVectorParams)</code></pre>
+      </div>
+    </div>
+
+    <h3 style="margin-top:1.5rem">Point Payload</h3>
+    <table>
+      <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td><code>text</code></td><td>string</td><td>Full chunk content (used for display and reranking)</td></tr>
+        <tr><td><code>source_file</code></td><td>string</td><td>Original filename (used for deduplication and filtering)</td></tr>
+        <tr><td><code>source_path</code></td><td>string</td><td>Absolute path on disk</td></tr>
+        <tr><td><code>file_type</code></td><td>string</td><td>Extension without dot (pdf, docx, csv…)</td></tr>
+        <tr><td><code>chunk_index</code></td><td>int</td><td>Global sequential index within the document</td></tr>
+        <tr><td><code>section</code></td><td>string</td><td>Heading breadcrumb: "Chapter 1 &gt; Overview"</td></tr>
+        <tr><td><code>page</code></td><td>int</td><td>Page number (1-based; 1 for single-page formats)</td></tr>
+        <tr><td><code>char_count</code></td><td>int</td><td>Character count of the chunk text</td></tr>
+        <tr><td><code>ingested_at</code></td><td>ISO-8601</td><td>UTC timestamp of ingestion</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Why store the full text in the payload?</h3>
+    <p>
+      Qdrant is the single source of truth. Storing the chunk text in the payload means
+      the application doesn't need a separate document store — one query to Qdrant returns
+      both the ranked chunk text and all metadata needed to cite the source.
+    </p>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════════════════ -->
+<section id="scripts">
+  <div class="container">
+    <div class="section-label">CLI Tools</div>
+    <h2>Scripts Reference</h2>
+
+    <div class="card-grid">
+
+      <div class="card">
+        <div class="card-icon">📥</div>
+        <h3>ingest.py</h3>
+        <pre><code># Ingest all files (dense, default)
+python scripts/ingest.py
+
+# Hybrid mode
+python scripts/ingest.py --mode hybrid
+
+# Single file
+python scripts/ingest.py --file report.pdf
+
+# Dry run (no upload)
+python scripts/ingest.py --dry-run
+
+# Force re-ingest
+python scripts/ingest.py --force
+
+# Custom chunk size
+python scripts/ingest.py --chunk-size 768 --overlap 96</code></pre>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">🔍</div>
+        <h3>query.py</h3>
+        <pre><code># Basic query
+python scripts/query.py "What is RAG?"
+
+# Hybrid mode
+python scripts/query.py "RAG" --mode hybrid
+
+# Top 10, full text
+python scripts/query.py "RAG" --top-k 10 --verbose
+
+# Filter by source file
+python scripts/query.py "KPIs" \
+  --filter source_file=report.pdf
+
+# Minimum score + export
+python scripts/query.py "metrics" \
+  --min-score 0.5 --output results.json</code></pre>
+      </div>
+
+      <div class="card">
+        <div class="card-icon">🛠️</div>
+        <h3>manage.py</h3>
+        <pre><code># Collection info
+python scripts/manage.py info
+
+# List all collections
+python scripts/manage.py list
+
+# Chunk/document stats
+python scripts/manage.py stats
+
+# Page through points
+python scripts/manage.py scroll --limit 5
+
+# Delete a source file's chunks
+python scripts/manage.py delete-doc \
+  --source "report.pdf"
+
+# Clear embedding cache
+python scripts/manage.py cache --clear
+
+# Export all payloads
+python scripts/manage.py export --output dump.json</code></pre>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     QUICK START
+════════════════════════════════════════════════ -->
+<section id="quickstart">
+  <div class="container">
+    <div class="section-label">Getting Started</div>
+    <h2>Quick Start</h2>
+
+    <div class="timeline">
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <h3>Install dependencies</h3>
+          <pre><code>pip install -r requirements.txt</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <h3>Configure environment</h3>
+          <pre><code>cp .env.example .env
+# Edit .env:
+#   QDRANT_URL=https://your-cluster.qdrant.io
+#   QDRANT_API_KEY=your_key_here</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <h3>Download NLTK data (first run only)</h3>
+          <pre><code>python -c "import nltk; nltk.download('punkt')"</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <h3>Drop your documents</h3>
+          <p>Copy PDF, DOCX, TXT, XLSX, CSV or any supported files into <code>data/raw/</code>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-body">
+          <h3>Run ingestion</h3>
+          <pre><code>python scripts/ingest.py</code></pre>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-body">
+          <h3>Query!</h3>
+          <pre><code>python scripts/query.py "What are the main findings?" --top-k 5 --verbose</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════════════
+     DECISIONS
+════════════════════════════════════════════════ -->
+<section id="decisions">
+  <div class="container">
+    <div class="section-label">Design Rationale</div>
+    <h2>Key Technical Decisions</h2>
+
+    <div class="decision">
+      <strong>Qdrant Cloud (free tier)</strong><br>
+      Managed, serverless, no infra to maintain. Free tier gives 1 collection with up to 1M vectors
+      at 384 dimensions — more than enough for a POC corpus. Named vectors let us support both
+      dense and sparse vectors in the same cluster without extra cost.
+    </div>
+
+    <div class="decision green">
+      <strong>sentence-transformers over OpenAI embeddings</strong><br>
+      No per-token API cost, no internet dependency at inference time, runs locally. The
+      <code>all-MiniLM-L6-v2</code> model is freely downloadable and well-benchmarked.
+      Swapping to OpenAI's <code>text-embedding-3-small</code> would only require changing
+      the <code>DENSE_MODEL</code> env var and adding the <code>openai</code> package.
+    </div>
+
+    <div class="decision purple">
+      <strong>Structured chunking over sliding window</strong><br>
+      Document structure carries semantic meaning. A heading like "Limitations" signals that
+      the following paragraph is about constraints — keeping them together produces a more
+      coherent chunk. Retrieval precision improves significantly on structured documents.
+    </div>
+
+    <div class="decision yellow">
+      <strong>Hash-trick sparse vectors over corpus BM25</strong><br>
+      True BM25 IDF requires corpus-level statistics that change with every new document.
+      The hash trick gives incremental ingestion without sacrificing keyword recall.
+      For production, replace with a proper sparse model (SPLADE / FastEmbed's BM25).
+    </div>
+
+    <div class="decision">
+      <strong>diskcache over Redis / in-memory for embeddings</strong><br>
+      For a POC, a file-based cache is zero-infra (no Redis server needed), persistent across
+      restarts, and fast enough for batch ingestion. Upgrade path: swap to Redis for multi-process
+      or distributed setups.
+    </div>
+
+    <div class="decision green">
+      <strong>Payload = single source of truth</strong><br>
+      Storing the full chunk text inside the Qdrant payload means one round-trip returns both
+      the relevant text and all metadata. No secondary lookup into a document store needed.
+      Trade-off: slightly larger payloads, but negligible at POC scale.
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>RAG System POC — Built for Qdrant Cloud · sentence-transformers · Python</p>
+    <p style="margin-top:.3rem">April 2025</p>
+  </div>
+</footer>
+
+</body>
+</html>

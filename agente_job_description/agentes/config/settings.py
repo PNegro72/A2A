@@ -17,9 +17,8 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    OPENAI_API_KEY: str = Field(description="API Key de OpenAI")
-    OPENAI_MODEL: str = Field(description="Modelo OpenAI a usar (formato LiteLLM, ej. openai/gpt-4.1)")
-    OPENAI_BASE_URL: str = Field(default="", description="Base URL de OpenAI (dejar vacío para api.openai.com)")
+    CLAUDE_API_KEY: str = Field(description="API Key de Anthropic (Claude)")
+    CLAUDE_MODEL: str = Field(description="Modelo Claude a usar (formato LiteLLM, ej. claude-sonnet-4-6)")
 
     HOST: str = Field(description="Host donde escucha el server FastAPI")
     PORT: int = Field(description="Puerto donde escucha el server FastAPI")

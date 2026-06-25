@@ -11,20 +11,33 @@ Todos los valores se leen del .env. No hay defaults hardcodeados — si una
 variable falta, Settings() falla al instanciarse (fail-fast).
 """
 from functools import lru_cache
-from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    OPENAI_API_KEY: str = Field(description="API Key de OpenAI")
-    OPENAI_MODEL: str = Field(description="Modelo OpenAI a usar (formato LiteLLM, ej. openai/gpt-4.1)")
+    CLAUDE_API_KEY: str = Field(description="API Key de Anthropic (Claude)")
+    CLAUDE_MODEL: str = Field(description="Modelo Claude a usar (formato LiteLLM, ej. claude-sonnet-4-6)")
 
-    CVS_DIR: Path = Field(description="Directorio con los CVs en formato .pptx")
-
-    EMBEDDING_MODEL: str = Field(
-        description="Modelo de sentence-transformers para embeddings de CVs y JDs",
+    # ── Integración con el MCP de RAGaaS (búsqueda RAG sobre Qdrant) ───────────
+    # El agente consume la tool `search` del servidor MCP de la carpeta MCP/.
+    # Tienen default para no romper .env existentes; ajustá lo que haga falta.
+    RAGAAS_MCP_URL: str = Field(
+        default="http://127.0.0.1:8006/mcp",
+        description="URL del servidor MCP de RAGaaS (transporte HTTP streamable).",
+    )
+    RAGAAS_COLLECTION: str = Field(
+        default="CVs",
+        description="Colección de Qdrant donde están indexados los CVs de candidatos.",
+    )
+    RAGAAS_MIN_SCORE: float = Field(
+        default=0.0,
+        description="Score mínimo de similitud [0.0–1.0] para los chunks del MCP.",
+    )
+    RAGAAS_CHUNKS_PER_CANDIDATE: int = Field(
+        default=5,
+        description="Chunks pedidos al MCP por candidato (cada CV puede partirse en varios).",
     )
 
     DEFAULT_TOP_N: int = Field(

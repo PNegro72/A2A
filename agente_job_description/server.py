@@ -7,7 +7,7 @@ Expone dos endpoints:
   - POST /a2a/redactar_jd      → recibe una request corta del usuario y genera
     una JD completa en JobDescriptionRedactada (con idioma detectado).
 
-Requiere OPENAI_API_KEY en .env. Host y puerto se configuran via
+Requiere CLAUDE_API_KEY en .env. Host y puerto se configuran via
 HOST y PORT (ver agentes/config/settings.py).
 
 Correr con:

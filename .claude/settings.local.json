@@ -33,7 +33,13 @@
       "PowerShell(gh api *)",
       "WebFetch(domain:api.github.com)",
       "WebFetch(domain:langfuse.com)",
-      "Bash(dir *)"
+      "Bash(dir *)",
+      "Bash(git commit --no-verify -m 'Merge origin/main \\(PR #4 OpenAI migration\\) into langfuse observability *)",
+      "Bash(gh auth *)",
+      "Bash(git config *)",
+      "Bash(git remote *)",
+      "Bash(git commit --no-verify -m 'Add Langfuse observability across agents; integrate with PR #4 \\(OpenAI\\) *)",
+      "Bash(git commit --no-verify -m 'Stop tracking build artifacts \\(pyc, generated kits, .url\\) *)"
     ]
   }
 }
