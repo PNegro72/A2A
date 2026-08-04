@@ -58,10 +58,11 @@ a2a-protocol-488221-de424eb7f166.json
 .cursorindexingignore
 
 # NERV-generated infrastructure
+# NOTE: AGENTS.md is intentionally NOT ignored — it is the tracked entry point
+# of the agent harness (see .harness/README.md).
 .nerv/
 .opencode/
 .githooks/
-AGENTS.md
 CONTRIBUTING.md
 SECURITY.md
 opencode.json
