@@ -64,7 +64,8 @@ An independent review then caught three liveness/memory defects in that first cu
 ## State
 
 `python .harness/verify.py` → 20/20. `pytest tests/ -q` in `agente_orchestrator` → 30/30 (the
-orchestrator had zero tests before this session). Nothing committed yet.
+orchestrator had zero tests before this session). Committed as two commits on `feat/agent-harness`,
+branched from `main` @ `8ff070c`; not pushed. See the handoff note for how to resume.
 
 Not validated: no live end-to-end run against a real orchestrator + LLM — tests use a stubbed ADK
 runner. `agente_scheduling` still has no tests.
