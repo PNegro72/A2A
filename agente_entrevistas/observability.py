@@ -1,9 +1,9 @@
 """
 Observabilidad para agente_entrevistas via Langfuse + OpenTelemetry.
 
-Llamar a init_observability(service_name) ANTES de crear cualquier cliente Anthropic.
-Usa AnthropicInstrumentor para instrumentar automáticamente todas las llamadas
-al SDK de Anthropic (messages.create) sin modificar el código de cada tool.
+Llamar a init_observability(service_name) ANTES de crear cualquier cliente OpenAI.
+Usa OpenAIInstrumentor para instrumentar automáticamente todas las llamadas
+al SDK de OpenAI (chat.completions.create) sin modificar el código de cada tool.
 """
 import base64
 import logging
@@ -21,7 +21,7 @@ def init_observability(service_name: str) -> bool:
     Comportamiento:
     - LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY ausentes → advertencia, retorna False.
     - Claves presentes pero inválidas → RuntimeError (fail-fast).
-    - Todo OK → instrumenta Anthropic SDK, loguea URL de traces, retorna True.
+    - Todo OK → instrumenta OpenAI SDK, loguea URL de traces, retorna True.
     """
     load_dotenv()
 
@@ -77,17 +77,17 @@ def init_observability(service_name: str) -> bool:
         ) from exc
 
     try:
-        from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
+        from opentelemetry.instrumentation.openai import OpenAIInstrumentor
 
-        AnthropicInstrumentor().instrument()
+        OpenAIInstrumentor().instrument()
     except Exception as exc:
         raise RuntimeError(
-            f"[observability] Error instrumentando Anthropic SDK: {exc}"
+            f"[observability] Error instrumentando OpenAI SDK: {exc}"
         ) from exc
 
     traces_url = f"{host}/traces"
     logger.info(
         "[observability] Langfuse conectado — servicio=%s | %s", service_name, traces_url
     )
-    print(f"[observability] Langfuse conectado → {traces_url}  (servicio: {service_name})")
+    print(f"[observability] Langfuse conectado -> {traces_url}  (servicio: {service_name})")
     return True

@@ -52,7 +52,7 @@ Devuelve SOLO el cuerpo del email en texto plano, sin ningun comentario adiciona
     try:
         response = _get_client().chat.completions.create(
             model=_get_model(),
-            max_tokens=1024,
+            max_completion_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
         cuerpo_texto = (response.choices[0].message.content or "").strip()

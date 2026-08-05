@@ -93,7 +93,7 @@ Responde UNICAMENTE con un JSON valido, sin texto adicional, con esta estructura
     try:
         response = _get_client().chat.completions.create(
             model=_get_model(),
-            max_tokens=4096,
+            max_completion_tokens=4096,
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
         )

@@ -73,12 +73,12 @@
       (retryClicked)="retry()"
     />
 
-    <!-- fileSent maneja mensajes con CV adjunto -->
+    <!-- filesSent maneja mensajes con CV(s) adjunto(s) -->
     <app-chat-input
       [isThinking]="isThinking()"
       (messageSent)="sendMessage($event)"
       (stopClicked)="stopResponse()"
-      (fileSent)="sendMessageWithFile($event)"
+      (filesSent)="sendMessageWithFiles($event)"
     />
 
   </div>
