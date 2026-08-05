@@ -24,7 +24,10 @@ from tools.crear_borrador_email import crear_borrador_email
 from prompts.system_prompt import SYSTEM_PROMPT
 from utils.config import OPENAI_API_KEY, OPENAI_MODEL
 
-MODEL = LiteLlm(model=f"openai/{OPENAI_MODEL}")
+MODEL = LiteLlm(
+    model=f"openai/{OPENAI_MODEL}",
+    reasoning_effort="none",
+)
 
 agente_entrevistas = Agent(
     name="agente_entrevistas",

@@ -5,7 +5,7 @@ Expone POST /a2a/entrevistas aceptando el payload JSON plano que envía
 el orchestrator (ej: {"action": "preparar_entrevista", "candidato_id": "...",
 "proceso_id": "...", "enviar_email": false}) y retorna el output del agente ADK.
 
-Lee toda la configuración del .env (HOST, PORT, LOG_LEVEL, CLAUDE_*, SUPABASE_*,
+Lee toda la configuración del .env (HOST, PORT, LOG_LEVEL, OPENAI_*, SUPABASE_*,
 MS_*, KIT_OUTPUT_DIR, TAVILY_API_KEY/SERPER_API_KEY). Si alguna variable falta,
 el agente falla al arrancar (fail-fast en utils/config.py).
 
@@ -25,7 +25,7 @@ from dotenv import load_dotenv
 
 load_dotenv(override=True)
 
-from observability import init_observability  # noqa: E402 — must precede anthropic imports
+from observability import init_observability  # noqa: E402 — must precede openai imports
 init_observability("entrevistas")
 
 from flask import Flask, jsonify, request, send_file  # noqa: E402
@@ -55,9 +55,12 @@ def entrevistas():
     if action == "enviar_email":
         return _enviar_email(body)
 
+    if action == "rankear_candidatos":
+        return _rankear_candidatos(body)
+
     return jsonify({
         "status":  "error",
-        "message": f"Accion desconocida: '{action}'. Acciones disponibles: preparar_entrevista, enviar_email",
+        "message": f"Accion desconocida: '{action}'. Acciones disponibles: preparar_entrevista, enviar_email, rankear_candidatos",
     }), 400
 
 
@@ -195,6 +198,66 @@ def _enviar_email(body: dict):
             span.set_attribute("error", str(exc))
             return jsonify({"status": "error", "message": str(exc)}), 500
 
+def _rankear_candidatos(body: dict):
+    """
+    Accion: rankear_candidatos
+    Recibe una lista de CVs (base64 o texto) y un JD, devuelve el Top 3.
+    """
+    jd_texto = body.get("jd_texto", "")
+    top_n    = int(body.get("top_n", 3))
+    cvs_raw  = body.get("candidatos", [])
+ 
+    if not cvs_raw:
+        return jsonify({"status": "error", "message": "Se requiere al menos un CV en 'candidatos'."}), 400
+ 
+    if not jd_texto:
+        return jsonify({"status": "error", "message": "Se requiere el Job Description en 'jd_texto'."}), 400
+ 
+    logger.info("Rankeando %d candidatos contra JD", len(cvs_raw))
+ 
+    candidatos = []
+    for cv in cvs_raw:
+        nombre    = cv.get("nombre") or cv.get("filename", "")
+        cv_texto  = cv.get("cv_texto", "")
+ 
+        if not cv_texto and cv.get("cv_base64"):
+            mime_type = cv.get("cv_mime_type", "application/pdf")
+            cv_texto  = _extraer_texto_cv(cv["cv_base64"], mime_type) or ""
+            logger.info("CV extraido: %s (%d chars)", nombre, len(cv_texto))
+ 
+        if cv_texto:
+            candidatos.append({
+                "nombre":   nombre,
+                "cv_texto": cv_texto,
+                "filename": cv.get("filename", ""),
+            })
+        else:
+            logger.warning("No se pudo extraer texto del CV: %s", nombre)
+ 
+    if not candidatos:
+        return jsonify({"status": "error", "message": "No se pudo extraer texto de ningun CV."}), 400
+ 
+    try:
+        from tools.rankear_candidatos import rankear_candidatos
+        resultado = rankear_candidatos(
+            candidatos=candidatos,
+            jd_texto=jd_texto,
+            top_n=top_n,
+        )
+ 
+        if "error" in resultado:
+            return jsonify({"status": "error", "message": resultado["error"]}), 500
+ 
+        return jsonify({
+            "status":          "ok",
+            "total_evaluados": resultado.get("total_evaluados", len(candidatos)),
+            "top_candidatos":  resultado.get("top_candidatos", []),
+            "resumen":         resultado.get("resumen", ""),
+        })
+ 
+    except Exception as exc:
+        logger.exception("Error en _rankear_candidatos")
+        return jsonify({"status": "error", "message": str(exc)}), 500
 
 def _preparar_entrevista(body: dict):
     candidato_id = body.get("candidato_id")
@@ -279,7 +342,6 @@ def _preparar_entrevista(body: dict):
 
             if cv_texto:
                 from tools.detectar_cv_inflado import detectar_cv_inflado
-                logger.info("EXPERIENCIA DEBUG | %s", experiencia)
                 experiencia_total = _calcular_experiencia_total(experiencia)
                 cv_inflado_result = detectar_cv_inflado(
                     cv_texto=cv_texto,
@@ -345,9 +407,8 @@ def _preparar_entrevista(body: dict):
                 span.set_attribute("error", kit_result["error"])
                 return jsonify({"status": "error", "message": kit_result["error"]}), 500
 
-            port         = int(os.environ.get("ENTREVISTAS_AGENT_PORT", 8003))
             filename     = kit_result.get("filename", "")
-            download_url = f"http://localhost:{port}/download/{filename}.docx" if filename else ""
+            download_url = f"{request.host_url}download/{filename}.docx" if filename else ""
 
             span.set_attribute("output.preguntas_total", len(preguntas))
             span.set_attribute("output.inflation_score", str(cv_inflado_result.get("inflation_score", "")))

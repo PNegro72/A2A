@@ -97,6 +97,7 @@ class ChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     message:         str
     file:            Optional[FileAttachment] = None  # CV adjunto (PDF/Word)
+    files:           Optional[list[FileAttachment]] = None
 
 
 class ChatInitResponse(BaseModel):
@@ -147,15 +148,31 @@ def _extract_step_from_function_response(part) -> tuple[str, str, str] | None:
     return fr.name, step_status, msg
 
 
-def _build_adk_content(message: str, file: Optional[FileAttachment]) -> types.Content:
+def _build_adk_content(message: str, file: Optional[FileAttachment], files: Optional[list[FileAttachment]] = None) -> types.Content:
+    # Múltiples CVs para rankeo
+    if files and len(files) > 0:
+        logger.info("BUILD ADK | procesando %d archivos via files", len(files))
+        textos = []
+        for f in files:
+            texto = _extraer_texto_base64(f.base64, f.mimeType)
+            if texto:
+                textos.append(f"=== CV: {f.fileName} ===\n{texto[:2000]}")
+            else:
+                textos.append(f"=== CV: {f.fileName} === [No se pudo extraer texto]")
+        cvs_block = "\n\n".join(textos)
+        text = f"{message}\n\n=== CVs ADJUNTOS PARA RANKEO ({len(files)} archivos) ===\n{cvs_block}"
+        return types.Content(role="user", parts=[types.Part(text=text)])
+
+    # Un solo CV
     if file:
+        logger.info("BUILD ADK | procesando archivo via file")
         texto_cv = _extraer_texto_base64(file.base64, file.mimeType)
         if texto_cv:
             text = f"{message}\n\n=== CV ADJUNTO ({file.fileName}) ===\n{texto_cv[:3000]}"
         else:
-            # Aunque no se pueda extraer el texto, igual procesamos el pedido
-            text = f"{message}\n\nNota: Se adjuntó el archivo {file.fileName} pero no se pudo extraer el texto. Procedé con los datos del candidato disponibles."
+            text = f"{message}\n\nNota: Se adjuntó el archivo {file.fileName} pero no se pudo extraer el texto."
         return types.Content(role="user", parts=[types.Part(text=text)])
+    logger.info("BUILD ADK | solo texto, sin archivo")
     return types.Content(role="user", parts=[types.Part(text=message)])
 
 def _extraer_texto_base64(cv_base64: str, mime_type: str) -> str | None:
@@ -218,11 +235,13 @@ async def post_chat(req: ChatRequest) -> ChatInitResponse:
         "session_id":      session_id,
         "message":         req.message,
         "file":            req.file,
+        "files":           req.files,
     }
 
-    logger.info("POST /chat → request_id=%s conv=%s file=%s",
-                request_id, conversation_id,
-                req.file.fileName if req.file else "none")
+    logger.info("POST /chat → request_id=%s conv=%s file=%s files=%d",
+            request_id, conversation_id,
+            req.file.fileName if req.file else "none",
+            len(req.files) if req.files else 0)
 
     return ChatInitResponse(
         conversation_id=conversation_id,
@@ -245,6 +264,8 @@ async def stream_chat(request_id: str) -> StreamingResponse:
         session_id = req_data["session_id"]
         message    = req_data["message"]
         file       = req_data.get("file")
+        files = req_data.get("files")
+        content = _build_adk_content(message, file, files)
 
         try:
             await session_service.create_session(
@@ -253,7 +274,6 @@ async def stream_chat(request_id: str) -> StreamingResponse:
         except Exception:
             pass
 
-        content = _build_adk_content(message, file)
 
         with _tracer.start_as_current_span(f"agent.{APP_NAME}") as span:
             span.set_attribute("input.value", message[:2000])
