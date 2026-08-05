@@ -16,8 +16,9 @@ import { LoggerService } from '../../../core/services/logger.service';
 import { Message } from '../../../core/models/message.model';
 import { AgentStep, FinalMessage, StreamError } from '../../../core/models/agent-step.model';
 import { MessageListComponent } from '../message-list/message-list.component';
-import { ChatInputComponent, MessageWithFile } from '../chat-input/chat-input.component';
+import { ChatInputComponent } from '../chat-input/chat-input.component';
 import { ConversationSidebarComponent } from '../conversation-sidebar/conversation-sidebar.component';
+import { MessageWithFiles } from '../chat-input/chat-input.component';
 
 function generateId(): string {
   return crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
@@ -112,41 +113,40 @@ export class ChatPageComponent implements OnInit, OnDestroy {
    * Envía un mensaje con archivo adjunto (CV en PDF/Word).
    * El archivo se convierte a base64 y se incluye en el payload del orchestrator.
    */
-  protected sendMessageWithFile(payload: MessageWithFile): void {
-    let convId = this.convService.activeConversationId();
-    if (!convId) {
-      const conv = this.convService.createConversation();
-      convId = conv.id;
-    }
-
-    // Mostrar el mensaje del usuario con el nombre del archivo adjunto
-    const userMessage: Message = {
-      id: generateId(),
-      role: 'user',
-      content: `${payload.text}\n📎 ${payload.fileName}`,
-      timestamp: new Date(),
-      status: 'done',
-    };
-    this.convService.addMessage(convId, userMessage);
-
-    const botMessageId = generateId();
-    this.pendingBotMessageId = botMessageId;
-    this.convService.addMessage(convId, {
-      id: botMessageId, role: 'assistant', content: '',
-      timestamp: new Date(), status: 'sending',
-    });
-
-    this.isThinking.set(true);
-    this.agentSteps.set([]);
-
-    this.streamSub = this.orchestrator.sendMessageWithFile(convId, payload).subscribe({
-      next: (initResponse) => this.openStream(initResponse.request_id, convId!, botMessageId),
-      error: (err: Error) => {
-        this.logger.error('Error iniciando chat con archivo', err);
-        this.finishWithError(convId!, botMessageId, err.message);
-      },
-    });
+  protected sendMessageWithFiles(payload: MessageWithFiles): void {
+  let convId = this.convService.activeConversationId();
+  if (!convId) {
+    const conv = this.convService.createConversation();
+    convId = conv.id;
   }
+ 
+  const userMessage: Message = {
+    id: generateId(),
+    role: 'user',
+    content: `${payload.text}\n📁 ${payload.files.length} CVs adjuntos: ${payload.files.map(f => f.fileName).join(', ')}`,
+    timestamp: new Date(),
+    status: 'done',
+  };
+  this.convService.addMessage(convId, userMessage);
+ 
+  const botMessageId = generateId();
+  this.pendingBotMessageId = botMessageId;
+  this.convService.addMessage(convId, {
+    id: botMessageId, role: 'assistant', content: '',
+    timestamp: new Date(), status: 'sending',
+  });
+ 
+  this.isThinking.set(true);
+  this.agentSteps.set([]);
+ 
+  this.streamSub = this.orchestrator.sendMessageWithFiles(convId, payload).subscribe({
+    next: (initResponse) => this.openStream(initResponse.request_id, convId!, botMessageId),
+    error: (err: Error) => {
+      this.logger.error('Error iniciando chat con archivos', err);
+      this.finishWithError(convId!, botMessageId, err.message);
+    },
+  });
+}
 
   private openStream(requestId: string, convId: string, botMessageId: string): void {
     this.streamSub = this.orchestrator.streamResponse(requestId).subscribe({

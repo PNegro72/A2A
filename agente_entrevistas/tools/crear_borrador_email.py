@@ -55,15 +55,7 @@ def crear_borrador_email(
             category="Reclutamiento",
         )
  
-        import ssl
-        import httpx
-
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-
         client = mt.MailtrapClient(token=api_token)
-        client._client = httpx.Client(verify=False)
         response = client.send(mail)
  
     except Exception as e:

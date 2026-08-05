@@ -108,7 +108,7 @@ Devuelve UNICAMENTE este JSON valido sin texto adicional. No uses comillas tipog
     try:
         response = _get_client().chat.completions.create(
             model=_get_model(),
-            max_tokens=2048,
+            max_completion_tokens=2048,
             messages=[{"role": "user", "content": prompt}],
         )
         raw = response.choices[0].message.content.strip()

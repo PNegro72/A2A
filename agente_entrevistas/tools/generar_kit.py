@@ -27,6 +27,7 @@ GRAY_DARK    = RGBColor(0x44, 0x44, 0x41)
 GRAY_MID     = RGBColor(0x88, 0x87, 0x80)
 GRAY_LIGHT   = RGBColor(0xF1, 0xEF, 0xE8)
 WHITE        = RGBColor(0xFF, 0xFF, 0xFF)
+CORAL_LIGHT = RGBColor(0xFA, 0xEC, 0xE7)
 
 CATEGORIA_CONFIG = {
     "técnica":    {"fill": "EAE7F8", "text": PURPLE_DARK,  "label": "TÉCNICA"},
