@@ -10,6 +10,7 @@ Never record secrets, API keys, tokens, or candidate PII here.
 
 ## Sessions
 
+- 2026-08-07 — [Re-verify local run + open PR](sessions/2026-08-07-run-test-and-pr.md) — live polling round-trip validated against real orchestrator+LLM (AC-6/AC-13), entrevistas OpenAI tests fixed (66/66), e2e cycle committed, `feat/agent-harness` pushed, PR #8 to `main` opened (pull/8)
 - 2026-08-04 — [HANDOFF: Agent harness + polling endpoint](sessions/2026-08-04-handoff-agent-harness.md) — next: one manual end-to-end polling run, then push `feat/agent-harness` and open the PR
 - 2026-08-04 — [Harness + polling endpoint](sessions/2026-08-04-harness-y-polling.md) — session summary: harness built, SDD cycle run, `GET /chat/status/{request_id}` implemented and hardened (30 tests, was 0)
 - 2026-08-04 — [SDD verify: agent-harness](sdd/agent-harness-verify.md) — **APPROVED, 20/20 AC pass.** The audit found 12 of ~45 factual claims in the first harness draft were wrong; all corrected and now re-checkable via `python .harness/verify.py`
