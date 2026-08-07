@@ -9,7 +9,7 @@ def make_scorer_agent(model: str | None = None) -> LlmAgent:
 
     return LlmAgent(
         name="scorer_agent",
-        model=LiteLlm(model=model or OPENAI_MODEL),
+        model=LiteLlm(model=model or OPENAI_MODEL, reasoning_effort="none"),
         instruction=(
             "You are a candidate scoring specialist.\n"
             f"Read state['{StateKeys.CANDIDATE_IDENTITIES}'] and "

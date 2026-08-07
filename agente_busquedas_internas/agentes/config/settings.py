@@ -17,8 +17,8 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    CLAUDE_API_KEY: str = Field(description="API Key de Anthropic (Claude)")
-    CLAUDE_MODEL: str = Field(description="Modelo Claude a usar (formato LiteLLM, ej. claude-sonnet-4-6)")
+    OPENAI_API_KEY: str = Field(description="API Key de OpenAI")
+    OPENAI_MODEL: str = Field(description="Modelo OpenAI a usar (formato LiteLLM, ej. gpt-5.6-terra)")
 
     # ── Integración con el MCP de RAGaaS (búsqueda RAG sobre Qdrant) ───────────
     # El agente consume la tool `search` del servidor MCP de la carpeta MCP/.

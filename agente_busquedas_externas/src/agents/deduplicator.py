@@ -60,7 +60,16 @@ def make_deduplicator_agent(
 
     return LlmAgent(
         name="deduplicator_agent",
-        model=LiteLlm(model=model or OPENAI_MODEL),
+        # NOTA (2026-08-05): con varios candidatos, algunos tool calls a
+        # save_candidate() llegan con leads_json truncado (JSONDecodeError,
+        # capturado ahí — el candidato queda sin persistir en esa llamada,
+        # aunque en la práctica suele reaparecer igual en el reporte final
+        # vía el state de leads crudos). Probé parallel_tool_calls=False
+        # pensando que era interferencia entre tool calls paralelos, pero el
+        # truncado persistió igual — el modelo parece truncar el string JSON
+        # largo dentro de un solo argumento, no por paralelismo. Sin fix
+        # confirmado todavía; ver conversación del 2026-08-05 para detalle.
+        model=LiteLlm(model=model or OPENAI_MODEL, reasoning_effort="none"),
         instruction=(
             "You are a deduplication specialist.\n"
             "Collect all leads from:\n"

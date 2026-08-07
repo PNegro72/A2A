@@ -82,7 +82,7 @@ def make_github_source_agent(model: str | None = None) -> LlmAgent:
 
     return LlmAgent(
         name="github_source_agent",
-        model=LiteLlm(model=model or OPENAI_MODEL),
+        model=LiteLlm(model=model or OPENAI_MODEL, reasoning_effort="none"),
         instruction=_INSTRUCTION,
         tools=[FunctionTool(get_github_profile), FunctionTool(get_github_repos)],
         output_key=StateKeys.LEADS_GITHUB,

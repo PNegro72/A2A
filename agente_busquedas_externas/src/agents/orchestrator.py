@@ -37,7 +37,7 @@ def create_orchestrator_agent(
         await pipeline_repo.create(run_id, job_description, location, work_mode)
         return run_id
 
-    _model = LiteLlm(model=OPENAI_MODEL)
+    _model = LiteLlm(model=OPENAI_MODEL, reasoning_effort="none")
 
     intake_agent = LlmAgent(
         name="intake_agent",

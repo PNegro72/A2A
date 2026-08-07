@@ -140,7 +140,9 @@ def _generate(query: str, chunks: list[dict], model: str,
         completion = client.chat.completions.create(
             model=model,
             temperature=0.1,
-            max_tokens=1024,
+            # NOTA (2026-08-05): gpt-5.6-* rechaza max_tokens ("Unsupported
+            # parameter") — la Chat Completions API lo reemplazó por este.
+            max_completion_tokens=1024,
             messages=[
                 {"role": "system", "content": system},
                 {"role": "user", "content": user_prompt},

@@ -16,11 +16,11 @@ RESPUESTA_VALIDA = {
 
 
 def _mock_client(payload):
-    """Mock del cliente Anthropic — simula response.content[0].text"""
+    """Mock del cliente OpenAI — simula response.choices[0].message.content"""
     m = MagicMock()
-    msg = MagicMock()
-    msg.content = [MagicMock(text=json.dumps(payload))]
-    m.messages.create.return_value = msg
+    choice = MagicMock()
+    choice.message.content = json.dumps(payload)
+    m.chat.completions.create.return_value.choices = [choice]
     return m
 
 
@@ -57,7 +57,9 @@ class TestGenerarPreguntas:
 
     def test_gemini_devuelve_json_invalido(self, candidato_data):
         mock_client = MagicMock()
-        mock_client.messages.create.return_value.content = [MagicMock(text="Lo siento, no puedo generar preguntas.")]
+        mock_client.chat.completions.create.return_value.choices = [
+            MagicMock(message=MagicMock(content="Lo siento, no puedo generar preguntas."))
+        ]
         with patch.object(_gp_mod, "_get_client", return_value=mock_client):
             from agente_entrevistas.tools.generar_preguntas import generar_preguntas
             result = generar_preguntas(candidato_nombre=candidato_data["nombre"], skills=[], experiencia=[], cv_texto=None, jd_texto=None, info_publica=None)
@@ -78,7 +80,7 @@ class TestGenerarPreguntas:
             from agente_entrevistas.tools.generar_preguntas import generar_preguntas
             generar_preguntas(candidato_nombre="NombreUnicoXYZ123", skills=[], experiencia=[], cv_texto=None, jd_texto=None, info_publica=None)
 
-        prompt = mock_client.messages.create.call_args[1]["messages"][0]["content"]
+        prompt = mock_client.chat.completions.create.call_args[1]["messages"][0]["content"]
         assert "NombreUnicoXYZ123" in prompt
 
     def test_prompt_incluye_skills(self, candidato_data):
@@ -87,5 +89,5 @@ class TestGenerarPreguntas:
             from agente_entrevistas.tools.generar_preguntas import generar_preguntas
             generar_preguntas(candidato_nombre="Test", skills=["SkillRaroTest999"], experiencia=[], cv_texto=None, jd_texto=None, info_publica=None)
 
-        prompt = mock_client.messages.create.call_args[1]["messages"][0]["content"]
+        prompt = mock_client.chat.completions.create.call_args[1]["messages"][0]["content"]
         assert "SkillRaroTest999" in prompt

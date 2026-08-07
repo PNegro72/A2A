@@ -7,7 +7,9 @@ requires-python = ">=3.11"
 dependencies = [
     # google-adk incluye google-genai como dependencia transitiva; no hace falta
     # listarlo por separado. Provee el CLI `adk` y toda la infraestructura de agentes.
-    "google-adk>=1.0.0",
+    # [extensions] es requerido por agent.py: usa google.adk.models.lite_llm.LiteLlm,
+    # que hace un import interno de litellm y falla en runtime sin este extra.
+    "google-adk[extensions]>=1.0.0",
     # a2a-sdk es utilizado internamente por ADK para el protocolo A2A. Se lista
     # explícitamente para garantizar compatibilidad de versión.
     "a2a-sdk>=0.2.0",
@@ -23,7 +25,10 @@ dependencies = [
     # httpx es necesario para la integración futura con Workday API.
     "httpx>=0.27.0",
     # Cliente MCP: el agente consume la tool `search` del servidor MCP de RAGaaS.
-    "mcp>=1.2.0",
+    # NOTA (2026-08-05): mcp 2.0.0 reestructuró mcp.client.streamable_http y
+    # eliminó streamablehttp_client, que ragaas_client.py usa directamente.
+    # Pineado a la última 1.x hasta migrar el código a la API nueva.
+    "mcp>=1.2.0,<2.0.0",
     # supabase se agrega en el orquestador, no aquí.
     # NO agregar: arrastra pyiceberg que requiere compilar C++ en Windows.
     # "supabase>=2.0.0",

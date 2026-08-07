@@ -37,7 +37,7 @@ def make_himalayas_source_agent(model: str | None = None) -> LlmAgent:
 
     return LlmAgent(
         name="himalayas_source_agent",
-        model=LiteLlm(model=model or OPENAI_MODEL),
+        model=LiteLlm(model=model or OPENAI_MODEL, reasoning_effort="none"),
         instruction=_INSTRUCTION,
         tools=[McpToolset(connection_params=StreamableHTTPConnectionParams(url=_HIMALAYAS_MCP_URL))],
         output_key=StateKeys.LEADS_HIMALAYAS,

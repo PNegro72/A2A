@@ -3,6 +3,12 @@ annotated-doc==0.0.4
 annotated-types==0.7.0
 anthropic==0.83.0
 anyio==4.12.1
+# NOTA (2026-08-05): faltaban pese a que server.py hace `import fitz` /
+# `from docx import Document` en _extraer_texto_base64 (CV adjunto en /chat).
+# Sin esto, el botón "Adjuntar CV" del frontend nunca extrae texto (falla
+# silenciosamente, capturado por el try/except — no rompe el server).
+pymupdf
+python-docx
 asttokens==3.0.1
 certifi==2026.1.4
 cffi==2.0.0

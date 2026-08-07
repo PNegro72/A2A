@@ -45,7 +45,10 @@ from rich.table import Table
 
 from src.config import BATCH_SIZE, CHUNK_OVERLAP, CHUNK_SIZE, DATA_DIR, SUPPORTED_EXTENSIONS
 from src.chunker import chunk_pages
-from src.embeddings import DenseEmbedder, HybridEmbedder
+# NOTA (2026-08-05): dense usa OpenAIEmbedder (activo), no el DenseEmbedder de
+# sentence-transformers (legacy) — mismo motivo que api/main.py.
+from src.embeddings import HybridEmbedder
+from src.openai_embedder import OpenAIEmbedder
 from src.loaders import load_document
 from src.qdrant_manager import QdrantManager
 
@@ -155,8 +158,8 @@ def main(single_file, folder, mode, chunk_size, overlap, dry_run, force, recreat
     if not dry_run:
         manager.create_collection(recreate=recreate)
 
-    embedder = HybridEmbedder() if mode == "hybrid" else DenseEmbedder()
-    console.print(f"[dim]Embedder: {'HybridEmbedder' if mode == 'hybrid' else 'DenseEmbedder'}[/dim]")
+    embedder = HybridEmbedder() if mode == "hybrid" else OpenAIEmbedder()
+    console.print(f"[dim]Embedder: {'HybridEmbedder' if mode == 'hybrid' else 'OpenAIEmbedder'}[/dim]")
 
     # ── File discovery ─────────────────────────────────────────────────────
     if single_file:

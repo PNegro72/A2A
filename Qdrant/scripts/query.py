@@ -39,7 +39,10 @@ from rich.panel import Panel
 from rich.rule import Rule
 from rich.table import Table
 
-from src.embeddings import DenseEmbedder, HybridEmbedder
+# NOTA (2026-08-05): dense usa OpenAIEmbedder (activo), no el DenseEmbedder de
+# sentence-transformers (legacy) — mismo motivo que api/main.py.
+from src.embeddings import HybridEmbedder
+from src.openai_embedder import OpenAIEmbedder
 from src.qdrant_manager import QdrantManager
 
 console = Console()
@@ -118,7 +121,7 @@ def main(query_text, mode, top_k, min_score, filters, verbose, output, collectio
     # ── Embed the query ────────────────────────────────────────────────────
     with console.status("[dim]Embedding query...[/dim]"):
         if mode == "dense":
-            embedder = DenseEmbedder()
+            embedder = OpenAIEmbedder()
             query_vec = embedder.embed_query(query_text)
             results = manager.search_dense(
                 query_vector=query_vec,
