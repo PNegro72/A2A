@@ -23,6 +23,24 @@
           "fields": ["message"]
         }
       ]
+    },
+    {
+      "name": "redactar_jd",
+      "description": "Writes a complete Job Description from scratch from a short user request (e.g., 'necesito armar una JD para un Data Scientist senior'). Detects the request's language and writes the full JD in that same language, including summary, responsibilities, mandatory/nice-to-have requirements, seniority, management level, and a ready-to-paste Markdown version. Does NOT search candidates or call the ATS.",
+      "request_schema": {
+        "action": "redactar_jd",
+        "request": "string — the user's short request describing the role to draft, in any language"
+      },
+      "possible_responses": [
+        {
+          "status": "ok",
+          "fields": ["idioma", "titulo", "resumen", "responsabilidades", "requisitos_obligatorios", "requisitos_deseables", "seniority", "management_level", "modalidad", "cantidad_candidatos", "texto_completo"]
+        },
+        {
+          "status": "error",
+          "fields": ["message"]
+        }
+      ]
     }
   ],
   "conventions": {
@@ -30,6 +48,7 @@
     "skills_format": "PascalCase for technologies and tools (e.g., 'Python', 'AWS', 'PostgreSQL'); lowercase in Spanish for soft skills (e.g., 'liderazgo', 'comunicación efectiva'). Duplicates are removed. Maximum 15 skills returned, prioritizing those explicitly mentioned in the text.",
     "role_title": "Uses the most formal and descriptive variant of the title found in the JD. Never shortens or paraphrases.",
     "cantidad_candidatos": "Integer or null. Only set when the user EXPLICITLY mentions how many candidates they want (e.g., 'dame 1 candidato' → 1, 'necesito 3 perfiles' → 3, 'un candidato Python' → 1). null when the user does not specify a number. Never invented.",
+    "when_to_use_redactar_jd": "Use 'redactar_jd' (not 'parsear_jd') when the user wants a NEW JD written from a short request, rather than an EXISTING JD text parsed/structured. If the user pastes a full existing JD, use 'parsear_jd' instead.",
     "state": "Stateless: single-request parsing with no side effects. No data is written or stored."
   }
 }

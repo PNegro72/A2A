@@ -9,7 +9,7 @@ def make_jd_analyst_agent(model: str | None = None) -> LlmAgent:
 
     return LlmAgent(
         name="jd_analyst_agent",
-        model=LiteLlm(model=model or OPENAI_MODEL),
+        model=LiteLlm(model=model or OPENAI_MODEL, reasoning_effort="none"),
         instruction=(
             "You are a job description analyst.\n"
             f"Read state['{StateKeys.JOB_DESCRIPTION}'], state['{StateKeys.LOCATION}'], "

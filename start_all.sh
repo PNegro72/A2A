@@ -35,14 +35,16 @@ fi
 # agente de búsquedas internas: el backend habla con Qdrant Cloud, y el server
 # MCP expone la tool `search` que el agente consume por HTTP en :8006/mcp.
 readonly AGENTS=(
-    "orchestrator:8000:$SCRIPT_DIR/agente_orchestrator:.venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port 8000"
-    "job_description:8001:$SCRIPT_DIR/agente_job_description:.venv/bin/python server.py"
-    "busquedas_internas:8002:$SCRIPT_DIR/agente_busquedas_internas:.venv/bin/python server.py"
-    "entrevistas:8003:$SCRIPT_DIR/agente_entrevistas:.venv/bin/python server.py"
-    "scheduling:8004:$SCRIPT_DIR/agente_scheduling:.venv/bin/python server.py"
-    "busquedas_externas:8080:$SCRIPT_DIR/agente_busquedas_externas:.venv/bin/python -m uvicorn server:app --host 0.0.0.0 --port 8080"
+    "qdrant_backend:8007:$SCRIPT_DIR/Qdrant:health:@PY@ -m uvicorn api.main:app --host 0.0.0.0 --port 8007"
+    "mcp_server:8006:$SCRIPT_DIR/MCP:mcp:@PY@ mcp_server.py"
+    "orchestrator:8000:$SCRIPT_DIR/agente_orchestrator:health:@PY@ -m uvicorn server:app --host 0.0.0.0 --port 8000"
+    "job_description:8001:$SCRIPT_DIR/agente_job_description:health:@PY@ server.py"
+    "busquedas_internas:8002:$SCRIPT_DIR/agente_busquedas_internas:health:@PY@ server.py"
+    "entrevistas:8003:$SCRIPT_DIR/agente_entrevistas:health:@PY@ server.py"
+    "scheduling:8004:$SCRIPT_DIR/agente_scheduling:health:@PY@ server.py"
+    "busquedas_externas:8080:$SCRIPT_DIR/agente_busquedas_externas:health:@PY@ -m uvicorn server:app --host 0.0.0.0 --port 8080"
 )
-readonly ALL_PORTS=(8000 8001 8002 8003 8004 8006 8080)
+readonly ALL_PORTS=(8000 8001 8002 8003 8004 8006 8007 8080)
 readonly FRONTEND_DIR="$SCRIPT_DIR/frontend"
 readonly FRONTEND_PORT=4200
 readonly LOG_DIR="/tmp/sape_logs"
@@ -203,6 +205,8 @@ info "  JD Agent:  http://localhost:8001"
 info "  Int Agent: http://localhost:8002"
 info "  Ent Agent: http://localhost:8003"
 info "  Sch Agent: http://localhost:8004"
+info "  MCP:       http://localhost:8006/mcp"
+info "  RAG (Qdrant): http://localhost:8007"
 info "  Ext Agent: http://localhost:8080"
 info ""
 info "Logs: $LOG_DIR/*.log"

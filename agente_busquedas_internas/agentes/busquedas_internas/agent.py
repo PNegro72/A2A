@@ -16,8 +16,8 @@ from agentes.config.settings import get_settings
 from schemas.ResultadoRanking import ResultadoRanking
 
 # pydantic-settings carga el .env en sus atributos pero NO actualiza os.environ.
-# ADK/LiteLLM necesita ANTHROPIC_API_KEY en os.environ para autenticar con Claude;
-# como el .env usa CLAUDE_API_KEY, lo aliasamos abajo después de get_settings().
+# ADK/LiteLLM necesita OPENAI_API_KEY en os.environ para autenticar; load_dotenv()
+# ya lo deja en os.environ, pero lo re-aliasamos abajo explícitamente por claridad.
 load_dotenv(override=True)
 
 
@@ -29,7 +29,7 @@ def _read_prompt(filename: str) -> str:
 
 
 settings = get_settings()
-os.environ["ANTHROPIC_API_KEY"] = settings.CLAUDE_API_KEY
+os.environ["OPENAI_API_KEY"] = settings.OPENAI_API_KEY
 
 # armo el root_agent con el ADK de Google.
 root_agent = LlmAgent(
@@ -38,7 +38,7 @@ root_agent = LlmAgent(
         "Recibe una Job Description estructurada, busca candidatos internos en el ATS "
         "y los rankea con IA. Retorna un ResultadoRanking al orquestador."
     ),
-    model=LiteLlm(model=f"anthropic/{settings.CLAUDE_MODEL}"),
+    model=LiteLlm(model=f"openai/{settings.OPENAI_MODEL}", reasoning_effort="none"),
     instruction=_read_prompt("agent-prompt.txt"),
     tools=[Consultar_ats],
     output_schema=ResultadoRanking,

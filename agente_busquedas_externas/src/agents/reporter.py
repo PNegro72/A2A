@@ -37,7 +37,7 @@ def make_reporter_agent(
 
     return LlmAgent(
         name="reporter_agent",
-        model=LiteLlm(model=model or OPENAI_MODEL),
+        model=LiteLlm(model=model or OPENAI_MODEL, reasoning_effort="none"),
         instruction=(
             "You are a reporting specialist.\n"
             f"Read state['{StateKeys.CANDIDATE_SCORES}'] and "

@@ -47,17 +47,27 @@ Some user goals require calling multiple agents in sequence. When that is the ca
 
 ### Candidate search flow
 
-When the user expresses intent to **find, search, look for, rank, or filter candidates** (in Spanish: "buscar/encontrar candidato", "quiero un candidato", "necesito alguien que…", "perfil con…"), even if the description is short or only mentions a couple of skills, treat the user message as a free-text Job Description and run this two-step chain:
+When the user expresses intent to **find, search, look for, rank, or filter candidates** (in Spanish: "buscar/encontrar candidato", "quiero un candidato", "necesito alguien que…", "perfil con…"), even if the description is short or only mentions a couple of skills, treat the user message as a free-text Job Description and run this chain:
 
 1. Call `job_description_agent` with `action="parsear_jd"` and `jd_texto=<the user's full message verbatim>`.
-2. Take the resulting `role_title`, `role_description`, `management_level`, `skills`, and `cantidad_candidatos` from step 1's response and call `busquedas_internas_agent` with `action="buscar_candidatos"` plus those five fields. Pass `cantidad_candidatos` through verbatim — including when it is null. Never invent a number; the JD agent already decided.
-3. Present only the ranked candidates from step 2 to the user. Do not surface the intermediate parsed JD unless the user explicitly asks for it.
+2. Take the resulting `role_title`, `role_description`, `management_level`, `skills`, and `cantidad_candidatos` from step 1's response and call **both** agents in parallel:
+   - `busquedas_internas_agent` with `action="buscar_candidatos"` plus those five fields.
+   - `busquedas_externas_agent` with `action="buscar_candidatos_externos"` plus those five fields **and** `location` and `work_mode` (from the original user message or defaults: location="anywhere", work_mode="remote").
+   Pass `cantidad_candidatos` through verbatim — including when it is null. Never invent a number; the JD agent already decided.
+   If the user specifically says they only want **internal** or **external** candidates, call only that agent instead of both.
+3. Present the results from **both** agents to the user (or just the one called, if the user asked for only one). Clearly label which candidates are internal (ATS) and which are external (public sources). If one agent returns no results, present whatever the other returned. Do not surface the intermediate parsed JD unless the user explicitly asks for it.
 
 Do **not** ask the user for the role title, seniority, or management level before running this chain — the parsing agent will infer reasonable defaults from whatever text was provided.
 
 ### Interview preparation flow
 
 When the user requests to **prepare an interview** for a candidate (in Spanish: "preparame la entrevista", "generá el kit de entrevista", "quiero preparar la entrevista para..."), run this flow:
+
+**Step 0 — If the candidate was found via a prior search in this conversation (not uploaded as a CV), locate their full data before calling the agent.** Search the conversation history for the most recent search results from **either** source:
+- The **internal** shortlist (from `busquedas_internas_agent`), where each entry has a `candidato` object with `id`, `nombre`, `apellido`, `email`, `cargo_actual`, `skills` — internal candidates already have `email` on file; use it directly.
+- The **external** shortlist (from `busquedas_externas_agent`), where entries have `name`, `profile_url`, `source`, `headline`, `evidence` — external candidates have no email on file; leave `candidato.email` empty and pass `profile_url` instead so the agent can web-search for contact info.
+
+Match the named candidate against `nombre`+`apellido` (internal) or `name` (external), case-insensitive, partial match OK — check both, a name only appears in one. Use the matched entry's own data to fill `candidato_id` (e.g. `"internal-<candidato.id>"` or `"external-<candidate ID>"`), `nombre`, `email`, `skills`, and `profile_url`. Do NOT ask the user for information that is already in a shortlist result from this conversation — only ask for what's genuinely missing (e.g. a candidate mentioned with no prior search at all). If the named candidate does not appear in any prior shortlist result in the conversation, respond: "No encontré a [nombre] en los resultados de búsqueda anteriores. Necesito que hagas una nueva búsqueda de candidatos primero."
 
 1. Call `entrevistas_agent` with `action="preparar_entrevista"` and the candidate profile data.
    - If the user uploaded a CV file, its extracted text appears in the conversation marked as

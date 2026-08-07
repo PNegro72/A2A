@@ -40,7 +40,7 @@ def make_tavily_research_agent(model: str | None = None) -> LlmAgent:
     url = f"https://mcp.tavily.com/mcp/?tavilyApiKey={TAVILY_API_KEY}"
     return LlmAgent(
         name="tavily_research_agent",
-        model=LiteLlm(model=model or OPENAI_MODEL),
+        model=LiteLlm(model=model or OPENAI_MODEL, reasoning_effort="none"),
         instruction=_INSTRUCTION,
         tools=[McpToolset(connection_params=StreamableHTTPConnectionParams(url=url))],
         output_key=StateKeys.LEADS_TAVILY,

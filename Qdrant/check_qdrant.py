@@ -15,6 +15,7 @@ except ImportError as e:
 client = QdrantClient(
     url=config.QDRANT_URL,
     api_key=config.QDRANT_API_KEY,
+    port=config.QDRANT_PORT,
 )
 
 collections_to_check = [

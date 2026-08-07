@@ -1,0 +1,28 @@
+project: A2A — Sistema Multi-Agente de Reclutamiento
+harness: standalone (invincible-inspired, not invincible-managed)
+harness_version: 0.1.0
+created: 2026-08-04
+
+entrypoint: AGENTS.md
+architecture_doc: CLAUDE.md
+
+skills_dir: .claude/skills
+commands_dir: .claude/commands
+memory_dir: .harness/memory
+
+# Memory is file-based markdown. There is no CLI and no daemon.
+memory:
+  index: .harness/memory/index.md
+  notes: .harness/memory/notes
+  sessions: .harness/memory/sessions
+  committed: true
+
+languages:
+  - python>=3.11   # modern ADK agents
+  - python>=3.10   # legacy healthcare A2A agents
+  - typescript     # Angular 18 frontend
+
+conventions:
+  user_facing_language: es
+  code_language: en
+  commit_style: conventional-commits

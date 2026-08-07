@@ -9,7 +9,7 @@ def make_planner_agent(model: str | None = None) -> LlmAgent:
 
     return LlmAgent(
         name="planner_agent",
-        model=LiteLlm(model=model or OPENAI_MODEL),
+        model=LiteLlm(model=model or OPENAI_MODEL, reasoning_effort="none"),
         instruction=(
             "You are a search strategy planner.\n"
             f"Read state['{StateKeys.HIRING_REQUIREMENTS}'] for skills, seniority, "
