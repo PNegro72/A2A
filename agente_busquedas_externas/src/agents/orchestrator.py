@@ -2,7 +2,7 @@ import uuid
 
 from google.adk.agents import LlmAgent, ParallelAgent, SequentialAgent
 from google.adk.models.lite_llm import LiteLlm
-from google.adk.tools import FunctionTool
+from google.adk.tools import FunctionTool, ToolContext
 
 from src.agents.deduplicator import make_deduplicator_agent
 from src.agents.jd_analyst import make_jd_analyst_agent
@@ -12,6 +12,7 @@ from src.agents.scorer import make_scorer_agent
 from src.agents.sourcing.github import make_github_source_agent
 from src.agents.sourcing.himalayas import make_himalayas_source_agent
 from src.agents.sourcing.tavily import make_tavily_research_agent
+from src.agents.stage_guards import require_output
 from src.config import OPENAI_MODEL
 from src.domain.models import StateKeys
 from src.persistence.repositories import (
@@ -19,6 +20,8 @@ from src.persistence.repositories import (
     PipelineRunRepository,
     ShortlistReportRepository,
 )
+
+_VALID_WORK_MODES = ("remote", "hybrid")
 
 
 def create_orchestrator_agent(
@@ -31,11 +34,36 @@ def create_orchestrator_agent(
     Closes over persistence repos for intake and factory sub-agents.
     """
 
-    async def create_pipeline_run(job_description: str, location: str, work_mode: str) -> str:
-        """Create a pipeline run record and return the run_id."""
+    async def create_pipeline_run(
+        job_description: str,
+        location: str,
+        work_mode: str,
+        tool_context: ToolContext,
+    ) -> dict:
+        """Register the pipeline run and seed the shared state for later stages.
+
+        An LlmAgent can only write its own `output_key`, so the intake stage has
+        to seed job_description/location/work_mode/pipeline_run_id from inside a
+        tool — that is what makes them available to the `{key}` placeholders in
+        the downstream instructions.
+        """
+        if work_mode not in _VALID_WORK_MODES:
+            return {
+                "status": "error",
+                "message": f"work_mode must be one of {_VALID_WORK_MODES}, got {work_mode!r}",
+            }
+        if not job_description.strip():
+            return {"status": "error", "message": "job_description must not be empty"}
+
         run_id = str(uuid.uuid4())
         await pipeline_repo.create(run_id, job_description, location, work_mode)
-        return run_id
+
+        tool_context.state[StateKeys.JOB_DESCRIPTION] = job_description
+        tool_context.state[StateKeys.LOCATION] = location or "anywhere"
+        tool_context.state[StateKeys.WORK_MODE] = work_mode
+        tool_context.state[StateKeys.PIPELINE_RUN_ID] = run_id
+        tool_context.state.setdefault(StateKeys.RISK_FLAGS, [])
+        return {"status": "created", "run_id": run_id}
 
     _model = LiteLlm(model=OPENAI_MODEL, reasoning_effort="none")
 
@@ -43,33 +71,41 @@ def create_orchestrator_agent(
         name="intake_agent",
         model=_model,
         instruction=(
-            "You are the intake processor for the agente_busquedas_externas pipeline.\n"
-            "The incoming message is a JSON object with three required fields:\n"
-            "  job_description: str  — the full job description text\n"
-            "  location: str         — city, country, or 'anywhere'\n"
-            "  work_mode: str        — exactly 'remote' or 'hybrid'\n\n"
-            "Validation:\n"
-            "- If any field is missing, return an error message and STOP.\n"
-            "- If work_mode is not 'remote' or 'hybrid', return an error and STOP.\n\n"
-            "On success:\n"
-            "1. Call create_pipeline_run(job_description, location, work_mode) "
-            "   and store the returned run_id.\n"
-            f"2. Write job_description to state['{StateKeys.JOB_DESCRIPTION}']\n"
-            f"3. Write location to state['{StateKeys.LOCATION}']\n"
-            f"4. Write work_mode to state['{StateKeys.WORK_MODE}']\n"
-            f"5. Write run_id to state['{StateKeys.PIPELINE_RUN_ID}']\n"
-            f"6. Initialize state['{StateKeys.RISK_FLAGS}'] = []\n"
+            "You are the intake processor for the agente_busquedas_externas pipeline.\n\n"
+            "REQUEST ALREADY PARSED BY THE SERVER (empty when the agent is driven "
+            "directly)\n"
+            "  job_description: {job_description?}\n"
+            "  location: {location?}\n"
+            "  work_mode: {work_mode?}\n\n"
+            "If those are empty, read the same three fields from the incoming JSON "
+            "message instead.\n\n"
+            "Validate that job_description is non-empty and that work_mode is exactly "
+            f"one of {_VALID_WORK_MODES}. If validation fails, reply with the error and "
+            "STOP.\n"
+            "Otherwise call create_pipeline_run(job_description, location, work_mode) "
+            "exactly once — it registers the run and seeds the pipeline state — then "
+            "reply with the returned run_id."
         ),
         tools=[FunctionTool(create_pipeline_run)],
         output_key="intake_complete",
+        after_agent_callback=require_output("intake_agent", StateKeys.PIPELINE_RUN_ID),
     )
 
-    sourcing_phase = ParallelAgent(
+    # Himalayas is the only source that discovers candidates on its own; GitHub and
+    # Tavily enrich what it found. Running all three in parallel (the previous
+    # topology) meant GitHub and Tavily read `leads_himalayas` before their sibling
+    # had written it — GitHub returned "[]" and Tavily asked for the state values.
+    sourcing_phase = SequentialAgent(
         name="sourcing_phase",
         sub_agents=[
             make_himalayas_source_agent(model=OPENAI_MODEL),
-            make_github_source_agent(model=OPENAI_MODEL),
-            make_tavily_research_agent(model=OPENAI_MODEL),
+            ParallelAgent(
+                name="enrichment_phase",
+                sub_agents=[
+                    make_github_source_agent(model=OPENAI_MODEL),
+                    make_tavily_research_agent(model=OPENAI_MODEL),
+                ],
+            ),
         ],
     )
 

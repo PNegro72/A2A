@@ -100,5 +100,5 @@ def init_observability(service_name: str) -> bool:
     logger.info(
         "[observability] Langfuse conectado — servicio=%s | %s", service_name, traces_url
     )
-    print(f"[observability] Langfuse conectado → {traces_url}  (servicio: {service_name})")
+    print(f"[observability] Langfuse conectado -> {traces_url}  (servicio: {service_name})")
     return True

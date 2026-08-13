@@ -51,7 +51,12 @@ logger = logging.getLogger(__name__)
 sys.path.insert(0, ".")
 
 from agent import root_agent  # noqa: E402
-from request_state import DEFAULT_TTL_SECONDS, RequestStateStore  # noqa: E402
+from request_state import (  # noqa: E402
+    DEFAULT_TTL_SECONDS,
+    NO_FINAL_RESPONSE_CODE,
+    NO_FINAL_RESPONSE_MESSAGE,
+    RequestStateStore,
+)
 
 _tracer = trace.get_tracer(__name__)
 
@@ -334,6 +339,15 @@ async def _run_agent_events(request_id: str, req_data: dict) -> AsyncGenerator[d
 
     content = _build_adk_content(message, file, files)
 
+    # Todo camino de salida tiene que emitir un evento terminal (`final` o
+    # `error`). Si el generador termina sin ninguno, el StreamingResponse cierra
+    # limpio y —por spec de EventSource— el browser reconecta solo a la misma
+    # URL; pero `_take_pending` ya consumió el request_id, así que el reintento
+    # se come un 404 y el usuario ve un "conexión cerrada" espurio en lugar del
+    # motivo real. Esto espeja la garantía que `RequestStateStore.finish()` ya
+    # da en el transporte de polling.
+    emitio_terminal = False
+
     with _tracer.start_as_current_span(f"agent.{APP_NAME}") as span:
         span.set_attribute("input.value", message[:2000])
         try:
@@ -364,6 +378,7 @@ async def _run_agent_events(request_id: str, req_data: dict) -> AsyncGenerator[d
                     if text:
                         logger.info("Respuesta final (%d chars)", len(text))
                         span.set_attribute("output.value", text[:2000])
+                        emitio_terminal = True
                         yield _final_event(text)
 
         except asyncio.CancelledError:
@@ -371,7 +386,14 @@ async def _run_agent_events(request_id: str, req_data: dict) -> AsyncGenerator[d
             raise
         except Exception as exc:
             logger.error("Error corriendo el agente (request_id=%s): %s", request_id, exc, exc_info=True)
+            emitio_terminal = True
             yield _error_event("ORCHESTRATOR_ERROR", ORCHESTRATOR_ERROR_MESSAGE)
+
+        if not emitio_terminal:
+            logger.warning(
+                "La corrida terminó sin respuesta final (request_id=%s)", request_id
+            )
+            yield _error_event(NO_FINAL_RESPONSE_CODE, NO_FINAL_RESPONSE_MESSAGE)
 
 
 def _take_pending(request_id: str) -> dict:

@@ -190,6 +190,15 @@ sendMessageWithFiles(conversationId: string | undefined, payload: MessageWithFil
     if (err.status === 0) return new Error('Sin conexión con el servidor. Verificá que el orchestrator esté corriendo.');
     if (err.status === 503) return new Error('El orchestrator no está disponible (503).');
     if (err.status === 504) return new Error('Timeout del servidor (504). Reintentá en unos segundos.');
-    return new Error(err.error?.message ?? `Error ${err.status}: ${err.statusText}`);
+    // FastAPI serializa los HTTPException como {"detail": "..."}, no como
+    // {"message": "..."}. Leer solo `message` daba siempre undefined y tiraba
+    // por la borda la explicación del server (ej. "request_id no encontrado o
+    // ya consumido"), mostrando un "Error 404: Not Found" genérico.
+    const serverDetail = err.error?.detail ?? err.error?.message;
+    return new Error(
+      typeof serverDetail === 'string' && serverDetail
+        ? serverDetail
+        : `Error ${err.status}: ${err.statusText}`,
+    );
   }
 }

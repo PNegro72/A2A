@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,10 @@ class RiskFlag(BaseModel):
     severity: Literal["low", "medium", "high"]
 
 
+# Aliases the sourcing agents legitimately use for a source_type: the *name* of
+# the source instead of its provenance class. Anything outside this map is a
+# contract violation and must fail — silently rewriting an unknown provenance
+# class to "web-search" would launder unverifiable data into the shortlist.
 _SOURCE_TYPE_MAP = {
     "himalayas": "opt-in",
     "github": "public-api",
@@ -30,16 +34,31 @@ _VALID_SOURCE_TYPES = {"opt-in", "public-api", "web-search"}
 
 
 def _normalize_source_type(val: str) -> str:
+    """Map a known source alias to its provenance class.
+
+    Unknown values are returned untouched so the ``Literal`` on
+    :class:`CandidateEvidence.source_type` rejects them with a clear error.
+    """
     if val in _VALID_SOURCE_TYPES:
         return val
     normalized = _SOURCE_TYPE_MAP.get(val.lower())
     if normalized is None:
-        logger.warning("Unknown source_type '%s', defaulting to 'web-search'", val[:50])
-        return "web-search"
+        logger.warning(
+            "Unknown source_type '%s' — rejecting evidence item (no provenance class)",
+            val[:50],
+        )
+        return val
     return normalized
 
 
 class CandidateEvidence(BaseModel):
+    """A single observable fact plus the URL it was observed at.
+
+    ``source_url`` is mandatory and must be a real http(s) URL: the whole
+    scoring model is evidence-only, so an item without provenance is not
+    admissible and must never be defaulted into existence.
+    """
+
     field: str
     value: Any
     source_url: str
@@ -53,15 +72,22 @@ class CandidateEvidence(BaseModel):
     def _normalize(cls, data: Any) -> Any:
         if not isinstance(data, dict):
             return data
-        data.setdefault("source_url", "")
         if "source_type" in data:
             data["source_type"] = _normalize_source_type(str(data["source_type"]))
-        else:
-            data["source_type"] = "opt-in"
-        data.setdefault("verified", True)
-        data.setdefault("inferred", False)
-        data.setdefault("inference_basis", None)
         return data
+
+    @field_validator("source_url")
+    @classmethod
+    def _require_real_url(cls, value: str) -> str:
+        url = value.strip()
+        if not url:
+            raise ValueError(
+                "source_url must be the real URL the fact was observed at; "
+                "evidence without provenance is not admissible"
+            )
+        if not url.startswith(("http://", "https://")):
+            raise ValueError(f"source_url must be an http(s) URL, got {url[:80]!r}")
+        return url
 
 
 class CandidateLead(BaseModel):
@@ -70,27 +96,30 @@ class CandidateLead(BaseModel):
     name: str | None = None
     headline: str | None = None
     profile_url: str
+    github_url: str | None = None
     evidence: list[CandidateEvidence] = Field(default_factory=list)
 
     @model_validator(mode="before")
     @classmethod
     def _normalize(cls, data: Any) -> Any:
+        """Accept the API field names the sources actually use.
+
+        Only genuine aliases are resolved here (``login``/``github_username``
+        for ``raw_id``, ``html_url`` for ``profile_url``). Nothing is
+        fabricated: a lead with no real profile URL fails validation instead of
+        being given a placeholder.
+        """
         if not isinstance(data, dict):
             return data
         raw = data.get("raw_id")
-        if raw is None or not raw:
-            raw = data.get("github_username") or data.get("login") or "unknown"
-        data["raw_id"] = str(raw)
-        if not data.get("profile_url"):
-            data["profile_url"] = data.get("html_url") or f"https://example.com/{data['raw_id']}"
-        data.setdefault("source", "unknown")
-        # Normalize evidence items, delegating to CandidateEvidence._normalize
-        if isinstance(data.get("evidence"), list):
-            fallback_url = data.get("profile_url", "")
-            for ev in data["evidence"]:
-                if isinstance(ev, dict):
-                    ev.setdefault("source_url", fallback_url)
-                    CandidateEvidence._normalize(ev)
+        if not raw:
+            raw = data.get("github_username") or data.get("login")
+            if raw:
+                data["raw_id"] = str(raw)
+        else:
+            data["raw_id"] = str(raw)
+        if not data.get("profile_url") and data.get("html_url"):
+            data["profile_url"] = data["html_url"]
         return data
 
 
@@ -173,7 +202,9 @@ class CandidateScore(BaseModel):
             for flag in data["risk_flags"]:
                 if isinstance(flag, str):
                     fixed.append({"type": "data-quality", "description": flag, "severity": "low"})
-                elif isinstance(flag, dict):
+                elif isinstance(flag, (dict, RiskFlag)):
+                    # RiskFlag instances come from Python callers, not the LLM;
+                    # dropping them here silently loses the flags.
                     fixed.append(flag)
             data["risk_flags"] = fixed
         else:
@@ -223,6 +254,141 @@ class ShortlistReport(BaseModel):
             if isinstance(c, dict):
                 CandidateScore._normalize(c)
         return data
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# LLM wire contracts (ADK ``output_schema``)
+#
+# These are the schemas the model is *structurally* forced to emit, not just
+# asked to emit: ADK passes them to the provider as a strict JSON schema, so
+# every evidence item arrives as an object carrying its own real ``source_url``.
+# They are deliberately separate from the domain models above because a strict
+# schema cannot express ``Any``-typed fields or optional-with-default fields —
+# here every field is required and every type is concrete.
+#
+# Provenance is pinned per source with ``Literal`` so a sourcing agent cannot
+# mislabel where its data came from.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_EvidenceValue = str | int | float | bool
+
+# Nullable wire fields carry a `= None` default *only* so these models can
+# re-validate their own output: ADK stores an agent's structured output as
+# `model_dump(exclude_none=True)`, which drops the nulls the model did emit.
+# The default does not loosen the contract towards the model — ADK's strict
+# JSON schema lists every property as required regardless of defaults.
+
+
+class SourcedEvidence(BaseModel):
+    """One evidence item as emitted by a sourcing agent."""
+
+    field: str
+    value: _EvidenceValue
+    source_url: str
+    source_type: Literal["opt-in", "public-api", "web-search"]
+    verified: bool
+    inferred: bool
+    inference_basis: str | None = None
+
+
+class SourcedLead(BaseModel):
+    """One candidate lead as emitted by a sourcing agent."""
+
+    source: str
+    raw_id: str
+    name: str | None = None
+    headline: str | None = None
+    profile_url: str
+    github_url: str | None = None
+    evidence: list[SourcedEvidence]
+
+
+class HimalayasEvidence(SourcedEvidence):
+    source_type: Literal["opt-in"]
+
+
+class HimalayasLead(SourcedLead):
+    source: Literal["himalayas"]
+    evidence: list[HimalayasEvidence]
+
+
+class HimalayasLeads(BaseModel):
+    """``output_schema`` of the Himalayas sourcing agent."""
+
+    leads: list[HimalayasLead]
+
+
+class GithubEvidence(SourcedEvidence):
+    source_type: Literal["public-api"]
+
+
+class GithubLead(SourcedLead):
+    source: Literal["github"]
+    evidence: list[GithubEvidence]
+
+
+class GithubLeads(BaseModel):
+    """``output_schema`` of the GitHub sourcing agent."""
+
+    leads: list[GithubLead]
+
+
+class TavilyEvidence(SourcedEvidence):
+    source_type: Literal["web-search"]
+
+
+class TavilyLead(SourcedLead):
+    source: Literal["tavily"]
+    evidence: list[TavilyEvidence]
+
+
+class TavilyLeads(BaseModel):
+    """``output_schema`` of the Tavily research agent."""
+
+    leads: list[TavilyLead]
+
+
+class MergedIdentity(BaseModel):
+    """One deduplicated candidate as emitted by the deduplicator agent."""
+
+    canonical_id: str
+    github_url: str | None = None
+    merged_leads: list[SourcedLead]
+
+
+class DedupResult(BaseModel):
+    """``output_schema`` of the deduplicator agent."""
+
+    identities: list[MergedIdentity]
+
+
+class ScoredCandidate(BaseModel):
+    """One scored candidate as emitted by the scorer agent."""
+
+    candidate_id: str
+    score: float
+    reasoning: str
+    risk_flags: list[RiskFlag]
+    merged_leads: list[SourcedLead]
+
+
+class ScoringResult(BaseModel):
+    """``output_schema`` of the scorer agent."""
+
+    candidates: list[ScoredCandidate]
+
+
+class ShortlistReportOut(BaseModel):
+    """``output_schema`` of the reporter agent.
+
+    Mirrors :class:`ShortlistReport` minus ``generated_at``, which is stamped
+    deterministically when the report is persisted.
+    """
+
+    job_title: str
+    candidates: list[ScoredCandidate]
+    sources_used: list[str]
+    caveats: list[str]
 
 
 class StateKeys:

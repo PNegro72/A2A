@@ -135,6 +135,26 @@ def test_el_stream_sse_sigue_funcionando(client: TestClient, server_module):
     assert "listo" in response.text
 
 
+def test_el_stream_sse_cierra_con_error_si_no_hay_respuesta_final(
+    client: TestClient, server_module
+):
+    """Gemelo SSE de `test_status_cierra_con_error_si_no_hay_respuesta_final`.
+
+    Sin un evento terminal el StreamingResponse cierra limpio, el browser
+    reconecta por spec de EventSource y se come un 404 (el request_id ya fue
+    consumido), así que el usuario ve un "conexión cerrada" espurio en lugar
+    del motivo real.
+    """
+    server_module.runner = FakeRunner([])
+    request_id = _start_chat(client)
+
+    response = client.get(f"/chat/stream/{request_id}")
+
+    assert response.status_code == 200
+    assert "event: error" in response.text
+    assert "NO_FINAL_RESPONSE" in response.text
+
+
 def test_health_reporta_los_requests_en_seguimiento(client: TestClient):
     body = client.get("/health").json()
 

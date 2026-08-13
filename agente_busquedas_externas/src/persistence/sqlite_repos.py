@@ -1,10 +1,14 @@
 import json
+import logging
 import uuid
 from datetime import datetime, timezone
 
 import aiosqlite
+from pydantic import ValidationError
 
 from src.domain.models import CandidateIdentity, CandidateLead, ShortlistReport
+
+logger = logging.getLogger(__name__)
 
 
 def _now() -> str:
@@ -17,20 +21,40 @@ class SQLiteCandidateRepository:
 
     async def get(self, canonical_id: str) -> CandidateIdentity | None:
         async with self.db.execute(
-            "SELECT merged_leads FROM candidate_identities WHERE canonical_id = ?",
+            "SELECT first_seen_at, merged_leads FROM candidate_identities "
+            "WHERE canonical_id = ?",
             (canonical_id,),
         ) as cursor:
             row = await cursor.fetchone()
         if row is None:
             return None
-        leads_raw = json.loads(row[0])
-        return CandidateIdentity(
-            canonical_id=canonical_id,
-            merged_leads=[CandidateLead(**lead) for lead in leads_raw],
-        )
+        first_seen_at, leads_raw = row
+        leads = []
+        for lead in json.loads(leads_raw):
+            try:
+                leads.append(CandidateLead.model_validate(lead))
+            except ValidationError:
+                # Historical row written before the evidence contract was
+                # enforced. Drop it with a warning rather than letting stale
+                # storage break the current run — leads produced *by this run*
+                # are validated at the deduplicator and fail loudly there.
+                logger.warning(
+                    "candidate %s: dropping stored lead that violates the current "
+                    "evidence contract",
+                    canonical_id,
+                    exc_info=True,
+                )
+        identity = CandidateIdentity(canonical_id=canonical_id, merged_leads=leads)
+        if first_seen_at:
+            try:
+                identity.first_seen_at = datetime.fromisoformat(first_seen_at)
+            except ValueError:
+                logger.warning(
+                    "candidate %s: unparseable first_seen_at %r", canonical_id, first_seen_at
+                )
+        return identity
 
     async def upsert(self, identity: CandidateIdentity) -> None:
-        now = _now()
         leads_json = json.dumps([lead.model_dump() for lead in identity.merged_leads])
         await self.db.execute(
             """
@@ -41,7 +65,12 @@ class SQLiteCandidateRepository:
                 last_seen_at = excluded.last_seen_at,
                 merged_leads = excluded.merged_leads
             """,
-            (identity.canonical_id, now, now, leads_json),
+            (
+                identity.canonical_id,
+                identity.first_seen_at.isoformat(),
+                _now(),
+                leads_json,
+            ),
         )
         await self.db.commit()
 

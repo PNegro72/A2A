@@ -23,6 +23,51 @@ logger = logging.getLogger(__name__)
 AGENT_HTTP_TIMEOUT = int(os.environ["AGENT_HTTP_TIMEOUT"])
 
 
+def _parse_timeout_overrides(raw: str) -> dict[str, int]:
+    """Parsea ``agente_a:30,agente_b:45`` en ``{"agente_a": 30, "agente_b": 45}``.
+
+    Una entrada mal formada se loguea y se descarta: un override roto tiene que
+    degradar al timeout global, no tumbar el arranque del orchestrator.
+    """
+    overrides: dict[str, int] = {}
+    for entry in raw.split(","):
+        entry = entry.strip()
+        if not entry:
+            continue
+        name, _, value = entry.partition(":")
+        name, value = name.strip(), value.strip()
+        if not name or not value.isdigit() or int(value) <= 0:
+            logger.warning(
+                "AGENT_HTTP_TIMEOUT_OVERRIDES: entrada inválida %r (formato esperado "
+                "'agente:segundos'). Se ignora y ese agente usa el timeout global.",
+                entry,
+            )
+            continue
+        overrides[name] = int(value)
+    return overrides
+
+
+# Presupuesto de tiempo por agente, para los que tienen que ceder antes que el
+# resto. Formato: "agente:segundos,agente:segundos".
+#
+# Caso de uso: busquedas_externas corre un pipeline de 7 etapas contra APIs de
+# terceros y se midió entre 95s y 152s. Darle un presupuesto corto lo convierte
+# en una fuente best-effort — si no llega, el orchestrator sigue con los
+# candidatos internos en lugar de hacer esperar al reclutador.
+#
+# Esto NO es lógica agent-specific: el mapa es data de configuración y la tool
+# sigue siendo agnóstica de qué agente está llamando.
+AGENT_HTTP_TIMEOUT_OVERRIDES = _parse_timeout_overrides(
+    os.environ.get("AGENT_HTTP_TIMEOUT_OVERRIDES", "")
+)
+
+if AGENT_HTTP_TIMEOUT_OVERRIDES:
+    logger.info(
+        "Timeouts por agente: %s (global: %ss)",
+        AGENT_HTTP_TIMEOUT_OVERRIDES, AGENT_HTTP_TIMEOUT,
+    )
+
+
 def call_external_agent(agent_name: str, payload: dict) -> dict:
     """
     Sends an HTTP POST to the webhook URL of the specified registered agent.
@@ -69,11 +114,17 @@ def call_external_agent(agent_name: str, payload: dict) -> dict:
             "message": f"Agent '{agent_name}' card does not declare a webhook_url.",
         }
 
-    logger.info("Calling agent '%s' | action: %s", agent_name, payload.get("action"))
+    timeout = AGENT_HTTP_TIMEOUT_OVERRIDES.get(agent_name, AGENT_HTTP_TIMEOUT)
+
+    logger.info(
+        "Calling agent '%s' | action: %s | timeout: %ss%s",
+        agent_name, payload.get("action"), timeout,
+        " (override)" if agent_name in AGENT_HTTP_TIMEOUT_OVERRIDES else "",
+    )
     logger.debug("Payload -> %s", payload)
 
     try:
-        response = requests.post(webhook_url, json=payload, timeout=AGENT_HTTP_TIMEOUT)
+        response = requests.post(webhook_url, json=payload, timeout=timeout)
         # No usamos raise_for_status() acá porque tira la excepción ANTES de leer el body
         # y los agentes downstream devuelven JSON con `message` aún en 4xx/5xx.
         # Queremos preservar ese mensaje para diagnosticar.
@@ -114,11 +165,23 @@ def call_external_agent(agent_name: str, payload: dict) -> dict:
         return result
 
     except Timeout:
-        logger.warning("Timeout calling agent '%s' (%ss exceeded).", agent_name, AGENT_HTTP_TIMEOUT)
+        presupuestado = agent_name in AGENT_HTTP_TIMEOUT_OVERRIDES
+        logger.warning(
+            "Timeout calling agent '%s' (%ss exceeded)%s.",
+            agent_name, timeout,
+            " — presupuesto propio, se sigue sin esta fuente" if presupuestado else "",
+        )
         return {
             "status": "error",
-            "code": "NETWORK_ERROR",
-            "message": f"Request to '{agent_name}' timed out after {AGENT_HTTP_TIMEOUT} seconds.",
+            "code": "AGENT_TIMEOUT",
+            "degraded": True,
+            "message": (
+                f"Agent '{agent_name}' did not answer within its {timeout}s time budget. "
+                f"Treat it as an unavailable best-effort source: continue with the results "
+                f"you already have from the other agents, and tell the user plainly that "
+                f"this source was skipped because it exceeded its time budget. "
+                f"Do NOT retry it and do NOT invent results for it."
+            ),
         }
 
     except ConnectionError as exc:
