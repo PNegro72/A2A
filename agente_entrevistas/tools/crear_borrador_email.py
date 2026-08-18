@@ -1,16 +1,15 @@
 """
 Tool: crear_borrador_email
-Envía el email al candidato via Mailtrap API (envío real).
- 
-Requiere en .env:
-    MAILTRAP_API_TOKEN=tu_api_token
-    MS_SENDER_EMAIL=tu_email_verificado@tudominio.com
+Envía el email al candidato delegando el envío al agente de scheduling.
+
+La lógica real de transporte ya no vive en este agente.
 """
- 
+
 import os
-import mailtrap as mt
- 
- 
+
+import requests
+
+
 def crear_borrador_email(
     candidato_nombre: str,
     candidato_email: str,
@@ -20,64 +19,66 @@ def crear_borrador_email(
     asunto: str | None = None,
 ) -> dict:
     """
-    Envía el email al candidato via Mailtrap API.
- 
+    Envía el email delegando la operación al agente de scheduling.
+
     Args:
         candidato_nombre: Nombre completo del candidato.
         candidato_email: Email del candidato destinatario.
         proceso_titulo: Título del proceso/posición (para el asunto).
         cuerpo_email: Cuerpo del email en HTML o texto plano.
-        remitente_email: Email remitente. Si es None, usa MS_SENDER_EMAIL del .env.
+        remitente_email: Email remitente. Si es None, el agente usa el remitente configurado.
         asunto: Asunto del email. Si es None, se genera automáticamente.
- 
+
     Returns:
         Dict con status del envío y metadata.
     """
-    api_token = os.environ.get("MAILTRAP_API_TOKEN")
-    if not api_token:
-        return {
-            "error":    "Falta MAILTRAP_API_TOKEN en el .env.",
-            "draft_id": None,
-        }
- 
-    sender  = remitente_email or os.environ.get("MS_SENDER_EMAIL", "hello@demomailtrap.co")
+    scheduling_url = os.environ.get("SCHEDULING_AGENT_URL", "http://localhost:8004/scheduling-agent")
     subject = asunto or f"Oportunidad laboral: {proceso_titulo}"
- 
-    content_type = "html" if cuerpo_email.strip().startswith("<") else "plain"
- 
+    payload = {
+        "action": "send_email",
+        "candidato_nombre": candidato_nombre,
+        "candidato_email": candidato_email,
+        "proceso_titulo": proceso_titulo,
+        "cuerpo_email": cuerpo_email,
+        "remitente_email": remitente_email,
+        "asunto": subject,
+    }
+
     try:
-        mail = mt.Mail(
-            sender=mt.Address(email=sender),
-            to=[mt.Address(email=candidato_email, name=candidato_nombre)],
-            subject=subject,
-            text=cuerpo_email if content_type == "plain" else None,
-            html=cuerpo_email if content_type == "html" else None,
-            category="Reclutamiento",
-        )
- 
-        import ssl
-        import httpx
-
-        ssl_context = ssl.create_default_context()
-        ssl_context.check_hostname = False
-        ssl_context.verify_mode = ssl.CERT_NONE
-
-        client = mt.MailtrapClient(token=api_token)
-        client._client = httpx.Client(verify=False)
-        response = client.send(mail)
- 
-    except Exception as e:
+        response = requests.post(scheduling_url, json=payload, timeout=30)
+        data = response.json() if response.content else {}
+    except Exception as exc:
         return {
-            "error":    f"Error enviando email via Mailtrap: {e}",
+            "error": f"Error llamando al agente scheduling: {exc}",
             "draft_id": None,
         }
- 
+
+    if response.status_code >= 400:
+        return {
+            "error": data.get("message") or "Error enviando email desde el agente scheduling.",
+            "draft_id": None,
+        }
+
+    if data.get("status") in {"ok", "enviado"} or data.get("email_enviado"):
+        success_message = data.get("mensaje") or f"Email enviado correctamente a {candidato_email} via scheduling agent."
+        if candidato_email not in success_message:
+            success_message = f"Email enviado correctamente a {candidato_email}. {success_message}"
+
+        response_asunto = data.get("asunto") or subject
+        if asunto is not None:
+            response_asunto = asunto
+
+        return {
+            "status": "enviado",
+            "draft_id": None,
+            "remitente": data.get("remitente") or remitente_email or os.environ.get("MS_SENDER_EMAIL"),
+            "destinatario": candidato_email,
+            "asunto": response_asunto,
+            "mensaje": success_message,
+            "response": data,
+        }
+
     return {
-        "status":       "enviado",
-        "draft_id":     None,
-        "remitente":    sender,
-        "destinatario": candidato_email,
-        "asunto":       subject,
-        "mensaje":      f"Email enviado correctamente a {candidato_email} via Mailtrap.",
-        "response":     str(response),
+        "error": data.get("message") or "El agente scheduling rechazó el envío del email.",
+        "draft_id": None,
     }

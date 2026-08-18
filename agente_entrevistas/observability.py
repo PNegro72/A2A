@@ -1,9 +1,9 @@
 """
 Observabilidad para agente_entrevistas via Langfuse + OpenTelemetry.
 
-Llamar a init_observability(service_name) ANTES de crear cualquier cliente Anthropic.
-Usa AnthropicInstrumentor para instrumentar automáticamente todas las llamadas
-al SDK de Anthropic (messages.create) sin modificar el código de cada tool.
+Llamar a init_observability(service_name) ANTES de importar el agente.
+Usa OpenAIInstrumentor para instrumentar automáticamente todas las llamadas
+al SDK de OpenAI (usado via LiteLLM) sin modificar el código de cada tool.
 """
 import base64
 import logging
@@ -16,12 +16,12 @@ logger = logging.getLogger(__name__)
 
 def init_observability(service_name: str) -> bool:
     """
-    Conecta el agente a Langfuse vía OTel + AnthropicInstrumentor.
+    Conecta el agente a Langfuse vía OTel + OpenAIInstrumentor.
 
     Comportamiento:
-    - LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY ausentes → advertencia, retorna False.
-    - Claves presentes pero inválidas → RuntimeError (fail-fast).
-    - Todo OK → instrumenta Anthropic SDK, loguea URL de traces, retorna True.
+    - LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY ausentes -> advertencia, retorna False.
+    - Claves presentes pero inválidas -> RuntimeError (fail-fast).
+    - Todo OK -> instrumenta OpenAI SDK, loguea URL de traces, retorna True.
     """
     load_dotenv()
 
@@ -60,34 +60,41 @@ def init_observability(service_name: str) -> bool:
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
-        auth_token = base64.b64encode(f"{public_key}:{secret_key}".encode()).decode()
-        otlp_endpoint = f"{host.rstrip('/')}/api/public/otel/v1/traces"
+        # Verificar si ya existe un TracerProvider — evitar sobrescribirlo
+        existing_provider = trace.get_tracer_provider()
+        if not isinstance(existing_provider, TracerProvider) or existing_provider.__class__.__name__ == "ProxyTracerProvider":
+            auth_token = base64.b64encode(f"{public_key}:{secret_key}".encode()).decode()
+            otlp_endpoint = f"{host.rstrip('/')}/api/public/otel/v1/traces"
 
-        exporter = OTLPSpanExporter(
-            endpoint=otlp_endpoint,
-            headers={"Authorization": f"Basic {auth_token}"},
-        )
-        provider = TracerProvider(resource=Resource.create({"service.name": service_name}))
-        provider.add_span_processor(BatchSpanProcessor(exporter))
-        trace.set_tracer_provider(provider)
+            exporter = OTLPSpanExporter(
+                endpoint=otlp_endpoint,
+                headers={"Authorization": f"Basic {auth_token}"},
+            )
+            provider = TracerProvider(resource=Resource.create({"service.name": service_name}))
+            provider.add_span_processor(BatchSpanProcessor(exporter))
+            trace.set_tracer_provider(provider)
+            logger.debug("[observability] TracerProvider configurado")
+        else:
+            logger.debug("[observability] TracerProvider ya existe — usando existente")
 
     except Exception as exc:
         raise RuntimeError(
             f"[observability] Error configurando OTel TracerProvider: {exc}"
         ) from exc
 
+    # Instrumentar OpenAI SDK vía LiteLLM
     try:
-        from opentelemetry.instrumentation.anthropic import AnthropicInstrumentor
-
-        AnthropicInstrumentor().instrument()
+        from opentelemetry.instrumentation.openai import OpenAIInstrumentor
+        OpenAIInstrumentor().instrument()
+        logger.info("[observability] OpenAI SDK instrumentado")
+    except ImportError:
+        logger.debug("[observability] OpenAI instrumentation no instalada - omitiendo")
     except Exception as exc:
-        raise RuntimeError(
-            f"[observability] Error instrumentando Anthropic SDK: {exc}"
-        ) from exc
+        logger.warning("[observability] Error instrumentando OpenAI (continuando): %s", exc)
 
     traces_url = f"{host}/traces"
     logger.info(
-        "[observability] Langfuse conectado — servicio=%s | %s", service_name, traces_url
+        "[observability] Langfuse conectado - servicio=%s | %s", service_name, traces_url
     )
-    print(f"[observability] Langfuse conectado → {traces_url}  (servicio: {service_name})")
+    print(f"[observability] Langfuse conectado: {traces_url} (servicio: {service_name})")
     return True
