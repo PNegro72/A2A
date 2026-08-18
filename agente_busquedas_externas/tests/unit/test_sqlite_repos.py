@@ -1,3 +1,4 @@
+import json
 import uuid
 from pathlib import Path
 
@@ -78,6 +79,40 @@ async def test_candidate_upsert_preserves_leads(db):
     result = await repo.get("gh:alice2")
     assert len(result.merged_leads) == 1
     assert result.merged_leads[0].source == "himalayas"
+
+
+async def test_candidate_get_drops_legacy_lead_violating_evidence_contract(db):
+    """Rows written before source_url was enforced must not break a new run."""
+    repo = SQLiteCandidateRepository(db)
+    legacy = [
+        {
+            "source": "github",
+            "raw_id": "legacy",
+            "profile_url": "https://github.com/legacy",
+            "evidence": [{"field": "bio", "value": "dev", "source_url": ""}],
+        }
+    ]
+    await db.execute(
+        "INSERT INTO candidate_identities (canonical_id, merged_leads) VALUES (?, ?)",
+        ("gh:legacy", json.dumps(legacy)),
+    )
+    await db.commit()
+
+    result = await repo.get("gh:legacy")
+    assert result is not None
+    assert result.merged_leads == []
+
+
+async def test_candidate_upsert_preserves_first_seen_at(db):
+    repo = SQLiteCandidateRepository(db)
+    identity = CandidateIdentity(canonical_id="gh:carol", merged_leads=[])
+    await repo.upsert(identity)
+    first_seen = (await repo.get("gh:carol")).first_seen_at
+
+    seen_again = await repo.get("gh:carol")
+    await repo.upsert(seen_again)
+
+    assert (await repo.get("gh:carol")).first_seen_at == first_seen
 
 
 # ── PipelineRunRepository ─────────────────────────────────────────────────

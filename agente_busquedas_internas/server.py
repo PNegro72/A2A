@@ -121,6 +121,13 @@ async def run_busquedas(request: Request) -> JSONResponse:
 
         try:
             result = json.loads(final_text)
+            # El agent card publica `possible_responses` keyeado en `status`, pero
+            # ResultadoRanking define el campo como `estado` (mismos valores:
+            # exito / sin_resultados / error). Sin este espejo el orquestador no
+            # encuentra `status`, cae al default "done" y le reporta un
+            # `estado: error` del agente a la UI como si fuera un éxito.
+            if isinstance(result, dict) and "estado" in result:
+                result.setdefault("status", result["estado"])
             span.set_attribute("output.value", json.dumps(result, ensure_ascii=False)[:2000])
             return JSONResponse(result)
         except json.JSONDecodeError:

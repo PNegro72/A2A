@@ -1,9 +1,50 @@
-from google.adk.agents import LlmAgent
-from google.adk.tools import FunctionTool
+import json
+import logging
 
+from google.adk.agents import LlmAgent
+from google.adk.agents.callback_context import CallbackContext
+from pydantic import ValidationError
+
+from src.agents.stage_guards import PipelineStageError, require_any_items, require_output
 from src.config import OPENAI_MODEL
-from src.domain.models import CandidateIdentity, CandidateLead, StateKeys
+from src.domain.models import (
+    CandidateIdentity,
+    CandidateLead,
+    DedupResult,
+    StateKeys,
+)
 from src.persistence.repositories import CandidateRepository
+
+logger = logging.getLogger("google_adk." + __name__)
+
+_INSTRUCTION = (
+    "You are a deduplication specialist. You decide which leads describe the same "
+    "human being.\n\n"
+    "LEADS FROM HIMALAYAS (JSON)\n"
+    "{leads_himalayas}\n\n"
+    "LEADS FROM GITHUB (JSON)\n"
+    "{leads_github}\n\n"
+    "LEADS FROM WEB RESEARCH (JSON)\n"
+    "{leads_tavily}\n\n"
+    "CANONICAL ID RULES\n"
+    "- The lead (or any of its siblings) exposes a GitHub identity -> 'gh:<username>'\n"
+    "- Otherwise -> 'himalayas:<raw_id>'\n"
+    "Leads describing the same person MUST collapse into exactly one identity, and "
+    "every input lead MUST appear in exactly one identity.\n\n"
+    "OUTPUT CONTRACT — enforced by a strict JSON schema; a response that does not match "
+    "is rejected.\n"
+    'Return a JSON object with a single key "identities" holding a list of objects:\n'
+    '  "canonical_id" : as per the rules above\n'
+    '  "github_url"   : the candidate\'s GitHub profile URL if any lead has one, else null\n'
+    '  "merged_leads" : the FULL lead objects that belong to this person, copied\n'
+    "                   verbatim from the input — same source, raw_id, name, headline,\n"
+    "                   profile_url, github_url and the complete evidence list.\n\n"
+    "RULES\n"
+    "- Copy evidence objects verbatim, including their source_url and source_type. Never\n"
+    "  summarise them into strings, never drop them, never swap one candidate's URL for\n"
+    "  another's: the score is computed only from this evidence.\n"
+    "- Do not invent leads or identities that are not in the input.\n"
+)
 
 
 def make_deduplicator_agent(
@@ -12,72 +53,73 @@ def make_deduplicator_agent(
 ) -> LlmAgent:
     from google.adk.models.lite_llm import LiteLlm
 
-    async def lookup_candidate(canonical_id: str) -> dict | None:
-        """Check if a candidate already exists in the database."""
-        identity = await candidate_repo.get(canonical_id)
-        return identity.model_dump(mode="json") if identity else None
-
-    async def save_candidate(canonical_id: str, leads_json: str) -> str:
-        """Upsert a CandidateIdentity with merged leads."""
-        import json
-        import logging
-
-        from pydantic import ValidationError
-
-        logger = logging.getLogger("google_adk." + __name__)
-
+    def _to_domain_lead(canonical_id: str, raw_lead: dict) -> CandidateLead:
         try:
-            raw = json.loads(leads_json)
-        except json.JSONDecodeError as e:
-            logger.warning(
-                "save_candidate: invalid JSON for %s: %s. Data: %.300s",
-                canonical_id, e, leads_json,
+            return CandidateLead.model_validate(raw_lead)
+        except ValidationError as exc:
+            # The wire schema already guarantees the shape, so getting here means
+            # the model produced a lead that violates the evidence contract
+            # (typically a missing or non-http source_url). Fail loudly instead
+            # of dropping the candidate on the floor.
+            raise PipelineStageError(
+                f"deduplicator_agent produced an invalid lead for {canonical_id}: "
+                f"{exc.errors(include_url=False)} — lead={json.dumps(raw_lead)[:400]}"
+            ) from exc
+
+    async def _persist_identities(callback_context: CallbackContext) -> None:
+        """Persist the merged identities.
+
+        Deterministic Python, not a tool call: passing whole lead lists as JSON
+        string arguments used to get truncated by the model, which lost
+        candidates at random.
+        """
+        raw = callback_context.state.get(StateKeys.CANDIDATE_IDENTITIES)
+        if isinstance(raw, str):
+            raw = json.loads(raw)
+        result = DedupResult.model_validate(raw)
+
+        for identity in result.identities:
+            leads = [
+                _to_domain_lead(identity.canonical_id, lead.model_dump())
+                for lead in identity.merged_leads
+            ]
+            existing = await candidate_repo.get(identity.canonical_id)
+            if existing:
+                # Keep previously known leads that this run did not re-observe.
+                seen = {(lead.source, lead.raw_id) for lead in leads}
+                leads += [
+                    lead
+                    for lead in existing.merged_leads
+                    if (lead.source, lead.raw_id) not in seen
+                ]
+            merged = CandidateIdentity(
+                canonical_id=identity.canonical_id,
+                merged_leads=leads,
+                github_url=identity.github_url,
             )
-            return f"skipped:{canonical_id}"
-        # Normalise: if a single dict was passed instead of a list, wrap it
-        raw_leads = raw if isinstance(raw, list) else [raw]
-        leads: list[CandidateLead] = []
-        for lead in raw_leads:
-            if not isinstance(lead, dict):
-                logger.warning(
-                    "save_candidate: skipping non-dict lead element (type=%s): %s",
-                    type(lead).__name__,
-                    str(lead)[:200],
-                )
-                continue
-            try:
-                leads.append(CandidateLead.model_validate(lead))
-            except ValidationError:
-                logger.warning(
-                    "save_candidate: skipping un-normalizable lead for %s: %.200s",
-                    canonical_id, str(lead)[:200],
-                    exc_info=True,
-                )
-                continue
-        identity = CandidateIdentity(canonical_id=canonical_id, merged_leads=leads)
-        await candidate_repo.upsert(identity)
-        return f"saved:{canonical_id}"
+            if existing:
+                merged.first_seen_at = existing.first_seen_at
+            await candidate_repo.upsert(merged)
+        logger.info(
+            "[deduplicator] persisted %d identities (%d leads total)",
+            len(result.identities),
+            sum(len(i.merged_leads) for i in result.identities),
+        )
 
     return LlmAgent(
         name="deduplicator_agent",
-        model=LiteLlm(model=model or OPENAI_MODEL),
-        instruction=(
-            "You are a deduplication specialist.\n"
-            "Collect all leads from:\n"
-            f"  state['{StateKeys.LEADS_HIMALAYAS}'],\n"
-            f"  state['{StateKeys.LEADS_GITHUB}'],\n"
-            f"  state['{StateKeys.LEADS_TAVILY}']\n"
-            "For each lead that has a github_url, use the GitHub username as canonical_id "
-            "(format: 'gh:<username>'). For leads without a github_url, use email if available, "
-            "otherwise use 'himalayas:<raw_id>'.\n\n"
-            "For each canonical_id:\n"
-            "1. Call lookup_candidate(canonical_id) to check if it exists in the DB\n"
-            "2. Merge all leads sharing that canonical_id into one CandidateIdentity\n"
-            "3. Call save_candidate(canonical_id, leads_json) to persist\n\n"
-            "Write the list of merged CandidateIdentity objects (as JSON) to "
-            f"state['{StateKeys.CANDIDATE_IDENTITIES}'].\n"
-            "A candidate appearing in multiple sources MUST produce exactly one entry."
-        ),
-        tools=[FunctionTool(lookup_candidate), FunctionTool(save_candidate)],
+        model=LiteLlm(model=model or OPENAI_MODEL, reasoning_effort="none"),
+        instruction=_INSTRUCTION,
+        output_schema=DedupResult,
         output_key=StateKeys.CANDIDATE_IDENTITIES,
+        before_agent_callback=require_any_items(
+            "deduplicator_agent",
+            StateKeys.LEADS_HIMALAYAS,
+            StateKeys.LEADS_GITHUB,
+            StateKeys.LEADS_TAVILY,
+        ),
+        after_agent_callback=[
+            require_output("deduplicator_agent", StateKeys.CANDIDATE_IDENTITIES),
+            _persist_identities,
+        ],
     )

@@ -4,6 +4,7 @@
  * Cliente HTTP para hablar con el backend orchestrator.
  * Soporta mensajes de texto y mensajes con archivos adjuntos (CV en PDF/Word).
  */
+import { MessageWithFiles } from '../../features/chat/chat-input/chat-input.component';
 import { Injectable, inject } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError, interval } from 'rxjs';
@@ -17,7 +18,6 @@ import {
   FinalMessage,
   StreamError,
 } from '../models/agent-step.model';
-import { MessageWithFile } from '../../features/chat/chat-input/chat-input.component';
 
 interface ChatRequest {
   conversation_id?: string;
@@ -63,30 +63,29 @@ export class OrchestratorService {
    * Envía un mensaje con archivo adjunto (CV en PDF/Word).
    * El archivo se incluye como base64 en el payload.
    */
-  sendMessageWithFile(conversationId: string | undefined, payload: MessageWithFile): Observable<StreamInitResponse> {
-    const body: ChatRequest = {
-      message: payload.text,
-      file: {
-        base64:   payload.fileBase64,
-        fileName: payload.fileName,
-        mimeType: payload.mimeType,
-      },
-    };
-    if (conversationId) body.conversation_id = conversationId;
-
-    this.logger.debug('OrchestratorService.sendMessageWithFile', {
-      conversationId,
-      fileName: payload.fileName,
-      mimeType: payload.mimeType,
-    });
-
-    return this.http.post<StreamInitResponse>(this.config.chatUrl(), body).pipe(
-      catchError((err: HttpErrorResponse) => {
-        this.logger.error('Error enviando mensaje con archivo', err);
-        return throwError(() => this.mapHttpError(err));
-      })
-    );
-  }
+sendMessageWithFiles(conversationId: string | undefined, payload: MessageWithFiles): Observable<StreamInitResponse> {
+  const body = {
+    message: payload.text,
+    files: payload.files.map(f => ({
+      base64:   f.fileBase64,
+      fileName: f.fileName,
+      mimeType: f.mimeType,
+    })),
+    conversation_id: conversationId,
+  };
+ 
+  this.logger.debug('OrchestratorService.sendMessageWithFiles', {
+    conversationId,
+    fileCount: payload.files.length,
+  });
+ 
+  return this.http.post<StreamInitResponse>(this.config.chatUrl(), body).pipe(
+    catchError((err: HttpErrorResponse) => {
+      this.logger.error('Error enviando mensaje con archivos', err);
+      return throwError(() => this.mapHttpError(err));
+    })
+  );
+}
 
   /**
    * Conecta al stream de respuesta del orchestrator.
@@ -191,6 +190,15 @@ export class OrchestratorService {
     if (err.status === 0) return new Error('Sin conexión con el servidor. Verificá que el orchestrator esté corriendo.');
     if (err.status === 503) return new Error('El orchestrator no está disponible (503).');
     if (err.status === 504) return new Error('Timeout del servidor (504). Reintentá en unos segundos.');
-    return new Error(err.error?.message ?? `Error ${err.status}: ${err.statusText}`);
+    // FastAPI serializa los HTTPException como {"detail": "..."}, no como
+    // {"message": "..."}. Leer solo `message` daba siempre undefined y tiraba
+    // por la borda la explicación del server (ej. "request_id no encontrado o
+    // ya consumido"), mostrando un "Error 404: Not Found" genérico.
+    const serverDetail = err.error?.detail ?? err.error?.message;
+    return new Error(
+      typeof serverDetail === 'string' && serverDetail
+        ? serverDetail
+        : `Error ${err.status}: ${err.statusText}`,
+    );
   }
 }

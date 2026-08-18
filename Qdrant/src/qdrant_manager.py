@@ -30,6 +30,7 @@ from src.config import (
     COLLECTION_NAME_HYBRID,
     DENSE_VECTOR_SIZE,
     QDRANT_API_KEY,
+    QDRANT_PORT,
     QDRANT_URL,
 )
 
@@ -90,7 +91,9 @@ class QdrantManager:
             self._SparseVectorParams, self._VectorParams, self._models,
         ) = _qdrant_imports()
 
-        self._client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY, timeout=120)
+        self._client = QdrantClient(
+            url=QDRANT_URL, api_key=QDRANT_API_KEY, port=QDRANT_PORT, timeout=120
+        )
 
     # ── Collection management ─────────────────
 

@@ -8,28 +8,26 @@ set -uo pipefail
 
 LOG_DIR="/tmp/sape_logs"
 PIDS_FILE="$LOG_DIR/agent_pids.txt"
-PORTS=(8000 8001 8002 8003 8004 8006 8080 4200)
+PORTS=(8000 8001 8002 8003 8004 8006 8007 8080 4200)
 
-if [[ -f "$PIDS_FILE" ]]; then
-    echo "Stopping SAPE agents..."
-    while IFS=':' read -r port name pid; do
-        if [[ -n "$pid" ]] && kill -0 $pid 2>/dev/null; then
-            echo "  Killing $name (PID $pid, port $port)"
-            kill $pid 2>/dev/null || true
-        fi
-    done < "$PIDS_FILE"
-    rm -f "$PIDS_FILE"
-    echo "Done."
-else
-    echo "No PID file found. Killing by port..."
-    for port in 8000 8001 8002 8003 8004 8080 4200; do
-        pid=$(lsof -ti :$port 2>/dev/null || true)
-        if [[ -n "$pid" ]]; then
+# Puertos → PID de Windows vía netstat (los PID de bash/MSYS no coinciden con
+# los de Windows, así que kill/lsof no sirven acá — hay que usar taskkill).
+kill_port() {
+    local port=$1 pid
+    for pid in $(netstat -ano 2>/dev/null | awk -v p=":${port}\$" '$4=="LISTENING" && $2 ~ p {print $5}' | sort -u); do
+        if [[ -n "$pid" && "$pid" != "0" ]]; then
             echo "  Killing port $port (PID $pid)"
-            kill $pid 2>/dev/null || true
+            taskkill //F //T //PID "$pid" >/dev/null 2>&1 || true
         fi
     done
+}
+
+echo "Stopping SAPE agents..."
+for port in "${PORTS[@]}"; do
+    kill_port "$port"
 done
+rm -f "$PIDS_FILE"
+echo "Done."
 
 rm -f "$PIDS_FILE"
 echo "Listo."

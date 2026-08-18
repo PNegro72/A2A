@@ -2,9 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Coding standards live in [`AGENTS.md`](AGENTS.md).** This file describes *what the system is*;
+> `AGENTS.md` describes *how to change it* — skill index, session protocol, and the cross-agent
+> change checklist. See [`.harness/README.md`](.harness/README.md) for the harness layout.
+
+
 ## Repository Overview
 
-This is a **multi-agent AI recruiting system** (Spanish-language) built with Google ADK + Claude API. A central orchestrator routes recruiter requests to specialized agents: job description parsing, internal/external candidate sourcing, and interview kit generation. A legacy healthcare A2A demo also lives here.
+This is a **multi-agent AI recruiting system** (Spanish-language) built with Google ADK + Claude API. A central orchestrator routes recruiter requests to specialized agents: job description parsing, internal/external candidate sourcing, and interview kit generation.
+
+> **Note (verified 2026-08-04):** an earlier revision of this file documented a legacy healthcare A2A demo (`a2a_policy_agent.py`, `a2a_provider_agent.py`, `a2a_research_agent.py`, `mcpserver.py`, `data/doctors.json`). **None of those files exist in this tree.** References to them have been removed.
+
 
 ## System Architecture
 
@@ -72,13 +80,21 @@ adk web --a2a agentes/<agent_folder>
 
 # Frontend dev server
 cd frontend && npm start
-
-# Legacy healthcare agents (separate terminals)
-python a2a_policy_agent.py    # :9999
-python a2a_provider_agent.py  # :9997
-python a2a_research_agent.py  # :9998
-python mcpserver.py           # local MCP for provider agent
 ```
+
+### Agent ports (verified)
+
+| Port | Agent | Route |
+|---|---|---|
+| 8000 | orchestrator | `POST /chat`, `GET /chat/stream/{request_id}`, `GET /chat/status/{request_id}`, `GET /health` |
+| 8001 | job_description | `POST /a2a/job_description`, `POST /a2a/redactar_jd` |
+| 8002 | busquedas_internas | `POST /a2a/busquedas_internas` |
+| 8003 | entrevistas (Flask) | `POST /a2a/entrevistas`, `GET /download/<filename>` |
+| 8004 | scheduling (Flask) | `POST /scheduling-agent`, `GET /scheduling-agent-card` |
+| 8080 | busquedas_externas | `POST /a2a/busquedas_externas` |
+| 4200 | frontend | — |
+
+Or start everything at once with `./start_all.sh` (Git Bash) and `./stop_all.sh`.
 
 ### Tests
 
@@ -105,8 +121,14 @@ Each agent needs a `.env` file. Copy `.env.example` as a starting point.
 | `GEMINI_MODEL` | ADK agents (default: `gemini-2.0-flash`) |
 | `GITHUB_TOKEN` | Busquedas Externas |
 | `TAVILY_API_KEY` | Busquedas Externas |
-| `GOOGLE_APPLICATION_CREDENTIALS` | Legacy healthcare agents (Vertex AI) |
-| `OPENAI_API_KEY` | Legacy provider agent |
+| `GOOGLE_APPLICATION_CREDENTIALS` | (unused — was for the removed healthcare demo) |
+| `OPENAI_API_KEY` | Busquedas Externas, Entrevistas (LiteLLM) |
+| `AGENT_HTTP_TIMEOUT` | Orchestrator — **required**, no default (`os.environ[...]`); missing value fails at import |
+| `CORS_ALLOWED_ORIGINS`, `HOST`, `PORT`, `LOG_LEVEL` | Orchestrator — required at import |
+| `REQUEST_STATE_TTL_SECONDS` | Orchestrator — optional, default `600`; TTL of polling state |
+| `RUN_TIMEOUT_SECONDS` | Orchestrator — optional, default `600`; caps a polled agent run so a hung run can't make the client poll forever |
+| `PENDING_TTL_SECONDS` | Orchestrator — optional, default `900`; discards `request_id`s never claimed by SSE or polling |
+| `RAGAAS_MCP_URL` | Busquedas Internas (Qdrant/RAGaaS MCP) |
 | `SCHEDULING_AGENT_WEBHOOK_URL` | Orchestrator → Scheduling agent (now the local Python agent at `http://localhost:8004/scheduling-agent`, no longer n8n) |
 | `SCHEDULING_AGENT_PORT` | Scheduling agent (default: `8004`) |
 | `GOOGLE_CREDENTIALS_FILE` | Scheduling agent (OAuth2 client secrets, default: `credentials.json`) |
@@ -134,7 +156,6 @@ All agents use **Pydantic** for typed I/O. Key shared schemas:
 **Persistence layers:**
 - **Busquedas Internas**: `.embeddings_cache.json` alongside `.pptx` CV files; sentence-transformers embeddings
 - **Busquedas Externas**: SQLite (`agente_busquedas_externas.db`) for dev; Supabase planned for prod
-- **Legacy agents**: `data/doctors.json`, `data/2026AnthemgHIPSBC.pdf`
 
 ## Busquedas Externas Pipeline
 
@@ -150,10 +171,14 @@ Angular 18 standalone components with Signals. Key structure:
 - `features/chat/` — main chat page, message list, bubble, thinking indicator, input
 - `shared/` — reusable UI components
 
-Uses Angular service worker for PWA. Production build goes to `dist/frontend/browser/` (Nginx-compatible).
+Uses Angular service worker for PWA. `angular.json` sets `outputPath: dist/frontend`; the Angular 18 application builder emits the browser bundle to `dist/frontend/browser/` (Nginx-compatible).
+
+`environment.transportMode` selects `'sse'` (default) or `'polling'`; both backend routes exist. The choice is made at config time — a `request_id` is consumed by the first transport that claims it, so there is no automatic failover between them.
 
 ## Python Version Requirements
 
-- Legacy A2A agents: Python 3.10+
-- Modern ADK agents (Orchestrator, Busquedas Externas, Entrevistas, Job Description): **Python 3.11+**
-- Busquedas Internas: Python 3.11+ (sentence-transformers)
+Declared `requires-python` (verified):
+
+- `agente_job_description`, `agente_busquedas_internas`: **>=3.11**
+- `agente_busquedas_externas`: **>=3.12**
+- `agente_orchestrator`, `agente_entrevistas`, `agente_scheduling`: none declared (`requirements.txt` only)

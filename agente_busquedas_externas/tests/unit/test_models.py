@@ -3,7 +3,9 @@ from pydantic import ValidationError
 
 from src.domain.models import (
     CandidateEvidence,
+    CandidateLead,
     CandidateScore,
+    HimalayasLeads,
     HiringRequirements,
     RiskFlag,
     StateKeys,
@@ -48,6 +50,110 @@ def test_evidence_valid_with_inference():
     )
     assert ev.inferred is True
     assert ev.inference_basis == "commit frequency over 3 years"
+
+
+def test_evidence_rejects_blank_source_url():
+    with pytest.raises(ValidationError):
+        CandidateEvidence(field="name", value="John", source_url="   ")
+
+
+def test_evidence_rejects_non_http_source_url():
+    with pytest.raises(ValidationError):
+        CandidateEvidence(field="name", value="John", source_url="himalayas profile")
+
+
+def test_evidence_maps_known_source_alias_to_provenance_class():
+    ev = CandidateEvidence(
+        field="skills",
+        value="Python",
+        source_url="https://api.github.com/users/john",
+        source_type="github",
+    )
+    assert ev.source_type == "public-api"
+
+
+# --- CandidateLead evidence contract ---
+
+def test_lead_rejects_bare_string_evidence():
+    """The sourcing agents must emit evidence objects, not prose.
+
+    Coercing a string into an evidence object would mean inventing its
+    source_url, which is exactly what evidence-only scoring forbids.
+    """
+    with pytest.raises(ValidationError):
+        CandidateLead(
+            source="github",
+            raw_id="octocat",
+            profile_url="https://github.com/octocat",
+            evidence=["15+ years; Python, FastAPI, PostgreSQL, AWS"],
+        )
+
+
+def test_lead_does_not_fabricate_profile_url():
+    with pytest.raises(ValidationError):
+        CandidateLead(source="github", raw_id="octocat")
+
+
+def test_lead_accepts_github_api_field_aliases():
+    lead = CandidateLead.model_validate(
+        {
+            "source": "github",
+            "login": "octocat",
+            "html_url": "https://github.com/octocat",
+            "evidence": [],
+        }
+    )
+    assert lead.raw_id == "octocat"
+    assert lead.profile_url == "https://github.com/octocat"
+
+
+# --- Sourcing wire schema (ADK output_schema) ---
+
+def test_himalayas_wire_schema_requires_evidence_source_url():
+    with pytest.raises(ValidationError):
+        HimalayasLeads.model_validate(
+            {
+                "leads": [
+                    {
+                        "source": "himalayas",
+                        "raw_id": "him-1",
+                        "name": None,
+                        "headline": None,
+                        "profile_url": "https://himalayas.app/u/x",
+                        "github_url": None,
+                        "evidence": [
+                            {
+                                "field": "skills",
+                                "value": "Python",
+                                "source_type": "opt-in",
+                                "verified": True,
+                                "inferred": False,
+                                "inference_basis": None,
+                            }
+                        ],
+                    }
+                ]
+            }
+        )
+
+
+def test_himalayas_wire_schema_pins_source_and_provenance():
+    with pytest.raises(ValidationError):
+        HimalayasLeads.model_validate(
+            {
+                "leads": [
+                    {
+                        "source": "github",  # wrong source for this schema
+                        "raw_id": "him-1",
+                        "name": None,
+                        "headline": None,
+                        "profile_url": "https://himalayas.app/u/x",
+                        "github_url": None,
+                        "evidence": [],
+                    }
+                ]
+            }
+        )
 
 
 # --- RiskFlag ---

@@ -184,7 +184,13 @@ class HybridEmbedder:
         vocab_size: int = SPARSE_VOCAB_SIZE,
         cache=None,
     ) -> None:
-        self._dense = DenseEmbedder(model_name=model_name, cache=cache)
+        # NOTA (2026-08-05): el componente denso usa OpenAIEmbedder (activo),
+        # no el DenseEmbedder de sentence-transformers (legacy) de este mismo
+        # módulo — mismo motivo que api/main.py. Import diferido para evitar
+        # un ciclo de imports entre embeddings.py y openai_embedder.py.
+        from src.openai_embedder import OpenAIEmbedder
+
+        self._dense = OpenAIEmbedder(model_name=model_name, cache=cache)
         self._vocab_size = vocab_size
 
     def embed(self, texts: list[str]) -> list[dict]:

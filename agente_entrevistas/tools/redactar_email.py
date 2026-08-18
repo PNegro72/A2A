@@ -52,7 +52,9 @@ Devuelve SOLO el cuerpo del email en texto plano, sin ningun comentario adiciona
     try:
         response = _get_client().chat.completions.create(
             model=_get_model(),
-            max_tokens=1024,
+            # NOTA (2026-08-05): gpt-5.6-* rechaza max_tokens ("Unsupported
+            # parameter") — la Chat Completions API lo reemplazó por este.
+            max_completion_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
         cuerpo_texto = (response.choices[0].message.content or "").strip()

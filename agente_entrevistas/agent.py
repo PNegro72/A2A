@@ -24,7 +24,10 @@ from tools.crear_borrador_email import crear_borrador_email
 from prompts.system_prompt import SYSTEM_PROMPT
 from utils.config import OPENAI_API_KEY, OPENAI_MODEL
 
-MODEL = LiteLlm(model=f"openai/{OPENAI_MODEL}")
+MODEL = LiteLlm(
+    model=f"openai/{OPENAI_MODEL}",
+    reasoning_effort="none",
+)
 
 agente_entrevistas = Agent(
     name="agente_entrevistas",
@@ -36,12 +39,15 @@ agente_entrevistas = Agent(
         "en Outlook para contactar al candidato si está interesado en la búsqueda."
     ),
     instruction=SYSTEM_PROMPT,
+    # NOTA: `leer_candidato` y `guardar_resultado` (lectura/persistencia en
+    # Supabase) figuraban en esta lista pero nunca se implementaron ni existían
+    # como import, por lo que este módulo tiraba NameError al importarse.
+    # Se quitan hasta que exista una implementación real; el perfil del
+    # candidato hoy llega en el payload HTTP (ver server.py).
     tools=[
-        leer_candidato,
         generar_preguntas,
         web_search,
         generar_kit,
-        guardar_resultado,
         redactar_email,
         crear_borrador_email,
     ],

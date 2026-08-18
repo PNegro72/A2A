@@ -54,7 +54,7 @@ session_service: Optional[InMemorySessionService] = None
 runner: Optional[Runner] = None
 
 
-def _translate_payload(payload: dict) -> str:
+def _translate_payload(payload: dict) -> dict:
     """
     Translate the orchestrator's payload schema into the pipeline's internal format.
 
@@ -88,14 +88,11 @@ def _translate_payload(payload: dict) -> str:
 
     job_description = "\n".join(jd_parts) if jd_parts else "General software engineering position"
 
-    return json.dumps(
-        {
-            "job_description": job_description,
-            "location": location,
-            "work_mode": work_mode,
-        },
-        ensure_ascii=False,
-    )
+    return {
+        "job_description": job_description,
+        "location": location,
+        "work_mode": work_mode,
+    }
 
 
 @asynccontextmanager
@@ -171,11 +168,18 @@ async def run_busquedas_externas(request: Request) -> JSONResponse:
             status_code=400,
         )
 
-    input_text = _translate_payload(payload)
+    pipeline_input = _translate_payload(payload)
+    input_text = json.dumps(pipeline_input, ensure_ascii=False)
 
     session_id = f"req_{uuid.uuid4().hex}"
+    # Seed the state the pipeline reads through ADK's `{key}` placeholders. The
+    # request is already parsed here, so there is no reason to make the intake
+    # agent re-derive it — intake validates it and registers the run.
     await session_service.create_session(
-        app_name=APP_NAME, user_id=USER_ID, session_id=session_id
+        app_name=APP_NAME,
+        user_id=USER_ID,
+        session_id=session_id,
+        state=dict(pipeline_input),
     )
 
     content = types.Content(role="user", parts=[types.Part(text=input_text)])
