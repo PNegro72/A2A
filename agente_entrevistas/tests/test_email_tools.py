@@ -1,19 +1,23 @@
 """
 Tests para tools/crear_borrador_email.py y tools/redactar_email.py
+
+crear_borrador_email.py ya no envía el email directamente (eso vivía antes en
+Mailtrap): delega el envío real al agente de scheduling vía HTTP
+(POST SCHEDULING_AGENT_URL, action=send_email). Estos tests mockean esa
+llamada HTTP y verifican cómo crear_borrador_email interpreta la respuesta.
 """
- 
+
 import os
 import pytest
 from unittest.mock import patch, MagicMock
- 
-os.environ.setdefault("OPENAI_API_KEY",   "test-openai-key")
-os.environ.setdefault("MS_SENDER_EMAIL",     "rrhh@empresa.com")
-os.environ.setdefault("MAILTRAP_API_TOKEN",  "test-mailtrap-token")
- 
+
+os.environ.setdefault("OPENAI_API_KEY",  "test-openai-key")
+os.environ.setdefault("MS_SENDER_EMAIL", "rrhh@empresa.com")
+
 import agente_entrevistas.tools.crear_borrador_email as _cbe_mod
 import agente_entrevistas.tools.redactar_email as _re_mod
- 
- 
+
+
 @pytest.fixture
 def candidato():
     return {
@@ -22,20 +26,30 @@ def candidato():
         "proceso_titulo": "Senior Backend Engineer – Fintech",
         "skills_clave":   ["Python", "FastAPI", "Kafka"],
     }
- 
- 
+
+
+def _mock_response(status_code=200, json_body=None):
+    """Construye un mock de requests.Response para el POST al scheduling agent."""
+    response = MagicMock()
+    response.status_code = status_code
+    response.content = b"{}" if json_body is None else b"non-empty"
+    response.json.return_value = json_body if json_body is not None else {}
+    return response
+
+
 @pytest.fixture
-def mock_mailtrap():
-    """Mock del cliente Mailtrap para no hacer llamadas reales."""
-    mock_client   = MagicMock()
-    mock_response = MagicMock()
-    mock_client.send.return_value = mock_response
- 
-    with patch("agente_entrevistas.tools.crear_borrador_email.mt.MailtrapClient",
-               return_value=mock_client) as mock_class:
-        yield mock_client
- 
- 
+def mock_scheduling_ok():
+    """Mock de requests.post: el scheduling agent confirma el envío."""
+    response = _mock_response(200, {
+        "status": "enviado",
+        "message_id": "msg-123",
+        "remitente": "rrhh@empresa.com",
+        "mensaje": "Email enviado correctamente a martina@gmail.com via Gmail (rrhh@empresa.com).",
+    })
+    with patch.object(_cbe_mod.requests, "post", return_value=response) as mock_post:
+        yield mock_post
+
+
 @pytest.fixture
 def mock_openai_email():
     """Mock del cliente OpenAI para redactar_email."""
@@ -52,11 +66,11 @@ def mock_openai_email():
     mock_client.chat.completions.create.return_value = mock_resp
     with patch.object(_re_mod, "_get_client", return_value=mock_client):
         yield mock_client
- 
- 
+
+
 class TestCrearBorradorEmail:
- 
-    def test_retorna_status_enviado(self, candidato, mock_mailtrap):
+
+    def test_retorna_status_enviado(self, candidato, mock_scheduling_ok):
         from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
         result = crear_borrador_email(
             candidato_nombre=candidato["nombre"],
@@ -65,8 +79,37 @@ class TestCrearBorradorEmail:
             cuerpo_email="Hola Martina, te contactamos por una oportunidad.",
         )
         assert result["status"] == "enviado"
- 
-    def test_usa_sender_del_env_por_defecto(self, candidato, mock_mailtrap):
+
+    def test_delega_al_agente_scheduling(self, candidato, mock_scheduling_ok):
+        """El envío real se delega vía HTTP al scheduling agent, no se hace acá."""
+        from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
+        crear_borrador_email(
+            candidato_nombre=candidato["nombre"],
+            candidato_email=candidato["email"],
+            proceso_titulo=candidato["proceso_titulo"],
+            cuerpo_email="Cuerpo",
+        )
+        mock_scheduling_ok.assert_called_once()
+        call_kwargs = mock_scheduling_ok.call_args
+        payload = call_kwargs.kwargs["json"]
+        assert payload["action"] == "send_email"
+        assert payload["candidato_email"] == candidato["email"]
+        assert call_kwargs.kwargs["timeout"] > 0
+
+    def test_usa_url_del_env_si_esta_configurada(self, candidato, mock_scheduling_ok):
+        from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
+        with patch.dict(os.environ, {"SCHEDULING_AGENT_URL": "http://scheduling.internal/scheduling-agent"}):
+            crear_borrador_email(
+                candidato_nombre=candidato["nombre"],
+                candidato_email=candidato["email"],
+                proceso_titulo=candidato["proceso_titulo"],
+                cuerpo_email="Cuerpo",
+            )
+        called_url = mock_scheduling_ok.call_args.args[0]
+        assert called_url == "http://scheduling.internal/scheduling-agent"
+
+    def test_usa_remitente_devuelto_por_scheduling(self, candidato, mock_scheduling_ok):
+        """El remitente real lo decide el scheduling agent (cuenta Gmail autenticada)."""
         from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
         result = crear_borrador_email(
             candidato_nombre=candidato["nombre"],
@@ -75,19 +118,21 @@ class TestCrearBorradorEmail:
             cuerpo_email="Cuerpo",
         )
         assert result["remitente"] == "rrhh@empresa.com"
- 
-    def test_usa_remitente_custom(self, candidato, mock_mailtrap):
-        from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
-        result = crear_borrador_email(
-            candidato_nombre=candidato["nombre"],
-            candidato_email=candidato["email"],
-            proceso_titulo=candidato["proceso_titulo"],
-            cuerpo_email="Cuerpo",
-            remitente_email="recruiting@otra.com",
-        )
-        assert result["remitente"] == "recruiting@otra.com"
- 
-    def test_asunto_autogenerado(self, candidato, mock_mailtrap):
+
+    def test_usa_env_como_fallback_de_remitente(self, candidato):
+        """Si el scheduling agent no informa remitente, cae al MS_SENDER_EMAIL configurado."""
+        response = _mock_response(200, {"status": "enviado", "mensaje": "ok"})
+        with patch.object(_cbe_mod.requests, "post", return_value=response):
+            from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
+            result = crear_borrador_email(
+                candidato_nombre=candidato["nombre"],
+                candidato_email=candidato["email"],
+                proceso_titulo=candidato["proceso_titulo"],
+                cuerpo_email="Cuerpo",
+            )
+        assert result["remitente"] == "rrhh@empresa.com"
+
+    def test_asunto_autogenerado(self, candidato, mock_scheduling_ok):
         from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
         result = crear_borrador_email(
             candidato_nombre=candidato["nombre"],
@@ -96,8 +141,8 @@ class TestCrearBorradorEmail:
             cuerpo_email="Cuerpo",
         )
         assert candidato["proceso_titulo"] in result["asunto"]
- 
-    def test_asunto_custom(self, candidato, mock_mailtrap):
+
+    def test_asunto_custom(self, candidato, mock_scheduling_ok):
         from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
         result = crear_borrador_email(
             candidato_nombre=candidato["nombre"],
@@ -107,8 +152,8 @@ class TestCrearBorradorEmail:
             asunto="Asunto personalizado test",
         )
         assert result["asunto"] == "Asunto personalizado test"
- 
-    def test_destinatario_en_retorno(self, candidato, mock_mailtrap):
+
+    def test_destinatario_en_retorno(self, candidato, mock_scheduling_ok):
         from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
         result = crear_borrador_email(
             candidato_nombre=candidato["nombre"],
@@ -117,41 +162,8 @@ class TestCrearBorradorEmail:
             cuerpo_email="Cuerpo",
         )
         assert result["destinatario"] == candidato["email"]
- 
-    def test_client_send_llamado(self, candidato, mock_mailtrap):
-        from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
-        crear_borrador_email(
-            candidato_nombre=candidato["nombre"],
-            candidato_email=candidato["email"],
-            proceso_titulo=candidato["proceso_titulo"],
-            cuerpo_email="Cuerpo",
-        )
-        mock_mailtrap.send.assert_called_once()
- 
-    def test_sin_api_token_retorna_error(self, candidato):
-        with patch.dict(os.environ, {"MAILTRAP_API_TOKEN": ""}):
-            from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
-            result = crear_borrador_email(
-                candidato_nombre=candidato["nombre"],
-                candidato_email=candidato["email"],
-                proceso_titulo=candidato["proceso_titulo"],
-                cuerpo_email="Cuerpo",
-            )
-        assert "error" in result
- 
-    def test_error_mailtrap_retorna_error(self, candidato):
-        with patch("agente_entrevistas.tools.crear_borrador_email.mt.MailtrapClient",
-                   side_effect=Exception("API error")):
-            from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
-            result = crear_borrador_email(
-                candidato_nombre=candidato["nombre"],
-                candidato_email=candidato["email"],
-                proceso_titulo=candidato["proceso_titulo"],
-                cuerpo_email="Cuerpo",
-            )
-        assert "error" in result
- 
-    def test_mensaje_confirma_envio(self, candidato, mock_mailtrap):
+
+    def test_mensaje_confirma_envio(self, candidato, mock_scheduling_ok):
         from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
         result = crear_borrador_email(
             candidato_nombre=candidato["nombre"],
@@ -160,38 +172,72 @@ class TestCrearBorradorEmail:
             cuerpo_email="Cuerpo",
         )
         assert candidato["email"] in result["mensaje"]
- 
-    def test_cuerpo_html_detectado(self, candidato, mock_mailtrap):
-        """Si el cuerpo empieza con <, debe enviarse como HTML."""
-        with patch("agente_entrevistas.tools.crear_borrador_email.mt.Mail") as mock_mail:
-            mock_mail.return_value = MagicMock()
+
+    def test_mensaje_del_scheduling_sin_email_lo_completa(self, candidato):
+        """Si el mensaje del scheduling agent no menciona el email, se lo antepone."""
+        response = _mock_response(200, {"status": "enviado", "mensaje": "Listo."})
+        with patch.object(_cbe_mod.requests, "post", return_value=response):
             from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
-            crear_borrador_email(
+            result = crear_borrador_email(
                 candidato_nombre=candidato["nombre"],
                 candidato_email=candidato["email"],
                 proceso_titulo=candidato["proceso_titulo"],
-                cuerpo_email="<p>Hola Martina</p>",
+                cuerpo_email="Cuerpo",
             )
-        call_kwargs = mock_mail.call_args[1]
-        assert call_kwargs.get("html") is not None
-        assert call_kwargs.get("text") is None
- 
-    def test_cuerpo_texto_detectado(self, candidato, mock_mailtrap):
-        """Si el cuerpo es texto plano, debe enviarse como text."""
-        with patch("agente_entrevistas.tools.crear_borrador_email.mt.Mail") as mock_mail:
-            mock_mail.return_value = MagicMock()
+        assert candidato["email"] in result["mensaje"]
+        assert "Listo." in result["mensaje"]
+
+    def test_email_enviado_flag_alternativo(self, candidato):
+        """El scheduling agent puede confirmar con email_enviado=True en vez de status."""
+        response = _mock_response(200, {"email_enviado": True})
+        with patch.object(_cbe_mod.requests, "post", return_value=response):
             from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
-            crear_borrador_email(
+            result = crear_borrador_email(
                 candidato_nombre=candidato["nombre"],
                 candidato_email=candidato["email"],
                 proceso_titulo=candidato["proceso_titulo"],
-                cuerpo_email="Hola Martina, texto plano.",
+                cuerpo_email="Cuerpo",
             )
-        call_kwargs = mock_mail.call_args[1]
-        assert call_kwargs.get("text") is not None
-        assert call_kwargs.get("html") is None
- 
- 
+        assert result["status"] == "enviado"
+
+    def test_excepcion_de_red_retorna_error(self, candidato):
+        with patch.object(_cbe_mod.requests, "post", side_effect=ConnectionError("no conecta")):
+            from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
+            result = crear_borrador_email(
+                candidato_nombre=candidato["nombre"],
+                candidato_email=candidato["email"],
+                proceso_titulo=candidato["proceso_titulo"],
+                cuerpo_email="Cuerpo",
+            )
+        assert "error" in result
+        assert result["draft_id"] is None
+
+    def test_status_code_error_retorna_error(self, candidato):
+        response = _mock_response(500, {"message": "Gmail API caída"})
+        with patch.object(_cbe_mod.requests, "post", return_value=response):
+            from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
+            result = crear_borrador_email(
+                candidato_nombre=candidato["nombre"],
+                candidato_email=candidato["email"],
+                proceso_titulo=candidato["proceso_titulo"],
+                cuerpo_email="Cuerpo",
+            )
+        assert result["error"] == "Gmail API caída"
+
+    def test_scheduling_rechaza_envio_retorna_error(self, candidato):
+        """status 200 pero el scheduling agent no confirma el envío (status distinto de enviado/ok)."""
+        response = _mock_response(200, {"status": "error", "message": "Payload inválido"})
+        with patch.object(_cbe_mod.requests, "post", return_value=response):
+            from agente_entrevistas.tools.crear_borrador_email import crear_borrador_email
+            result = crear_borrador_email(
+                candidato_nombre=candidato["nombre"],
+                candidato_email=candidato["email"],
+                proceso_titulo=candidato["proceso_titulo"],
+                cuerpo_email="Cuerpo",
+            )
+        assert result["error"] == "Payload inválido"
+
+
 class TestRedactarEmail:
 
     def test_retorna_cuerpo_texto(self, candidato, mock_openai_email):

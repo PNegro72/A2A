@@ -5,6 +5,15 @@ Expone POST /a2a/entrevistas aceptando el payload JSON plano que envía
 el orchestrator (ej: {"action": "preparar_entrevista", "candidato_id": "...",
 "proceso_id": "...", "enviar_email": false}) y retorna el output del agente ADK.
 
+El envío de email es un flujo de dos pasos (para que el orquestador le muestre
+el borrador al usuario antes de mandar nada):
+  1. action="redactar_email"  -> genera asunto+cuerpo, NO envía.
+  2. action="enviar_email"    -> envía. Si el payload trae asunto+cuerpo_email
+                                  (el borrador ya mostrado y confirmado), los
+                                  envía tal cual; si no vienen, redacta un
+                                  borrador nuevo y lo envía directo (one-shot,
+                                  compatibilidad con llamadas viejas).
+
 Lee toda la configuración del .env (HOST, PORT, LOG_LEVEL, OPENAI_*, SUPABASE_*,
 MS_*, KIT_OUTPUT_DIR, TAVILY_API_KEY/SERPER_API_KEY). Si alguna variable falta,
 el agente falla al arrancar (fail-fast en utils/config.py).
@@ -52,6 +61,9 @@ def entrevistas():
     if action == "preparar_entrevista":
         return _preparar_entrevista(body)
 
+    if action == "redactar_email":
+        return _redactar_email(body)
+
     if action == "enviar_email":
         return _enviar_email(body)
 
@@ -60,7 +72,7 @@ def entrevistas():
 
     return jsonify({
         "status":  "error",
-        "message": f"Accion desconocida: '{action}'. Acciones disponibles: preparar_entrevista, enviar_email, rankear_candidatos",
+        "message": f"Accion desconocida: '{action}'. Acciones disponibles: preparar_entrevista, redactar_email, enviar_email, rankear_candidatos",
     }), 400
 
 
@@ -142,12 +154,57 @@ def _calcular_experiencia_total(experiencia: list[dict]) -> str:
     return f"{anios} años y {meses} meses"
 
 
+def _redactar_email(body: dict):
+    """Acción independiente: genera el borrador (asunto + cuerpo) sin enviarlo.
+
+    Pensada para que el orquestador se lo muestre al usuario y pida confirmación
+    antes de llamar a 'enviar_email'.
+    """
+    candidato_nombre = body.get("candidato_nombre", "")
+    proceso_titulo   = body.get("proceso_titulo", "")
+    skills_clave     = body.get("skills_clave", [])
+
+    if not candidato_nombre or not proceso_titulo:
+        return jsonify({"status": "error", "message": "candidato_nombre y proceso_titulo son requeridos."}), 400
+
+    logger.info("Redactando borrador de email | candidato=%s proceso=%s", candidato_nombre, proceso_titulo)
+
+    with _tracer.start_as_current_span("entrevistas.redactar-email") as span:
+        span.set_attribute("input.candidato", candidato_nombre)
+        span.set_attribute("input.proceso", proceso_titulo)
+        from tools.redactar_email import redactar_email
+        email_result = redactar_email(
+            candidato_nombre=candidato_nombre,
+            proceso_titulo=proceso_titulo,
+            skills_clave=skills_clave[:4],
+        )
+
+        if "error" in email_result:
+            span.set_attribute("error", email_result["error"])
+            return jsonify({"status": "error", "message": email_result["error"]}), 500
+
+        return jsonify({
+            "status":       "ok",
+            "asunto":       email_result.get("asunto"),
+            "cuerpo_texto": email_result.get("cuerpo_texto"),
+            "cuerpo_html":  email_result.get("cuerpo_html"),
+        })
+
+
 def _enviar_email(body: dict):
-    """Acción independiente: solo redacta y manda el email, sin regenerar el kit."""
+    """Acción independiente: envía el email al candidato, sin regenerar el kit.
+
+    Si el payload trae `asunto` + `cuerpo_email` (el borrador que ya se le mostró
+    al usuario vía 'redactar_email' y confirmó), los envía tal cual. Si no vienen,
+    redacta un borrador nuevo y lo manda directo (one-shot, para compatibilidad
+    con llamadas que no pasan por el paso de confirmación).
+    """
     candidato_nombre = body.get("candidato_nombre", "")
     candidato_email  = body.get("candidato_email", "")
     proceso_titulo   = body.get("proceso_titulo", "")
     skills_clave     = body.get("skills_clave", [])
+    asunto           = body.get("asunto")
+    cuerpo_email     = body.get("cuerpo_email")
 
     if not candidato_email:
         return jsonify({"status": "error", "message": "candidato_email es requerido."}), 400
@@ -158,24 +215,28 @@ def _enviar_email(body: dict):
         span.set_attribute("input.candidato", candidato_nombre)
         span.set_attribute("input.proceso", proceso_titulo)
         try:
-            from tools.redactar_email import redactar_email
-            email_result = redactar_email(
-                candidato_nombre=candidato_nombre,
-                proceso_titulo=proceso_titulo,
-                skills_clave=skills_clave[:4],
-            )
+            if not cuerpo_email:
+                from tools.redactar_email import redactar_email
+                email_result = redactar_email(
+                    candidato_nombre=candidato_nombre,
+                    proceso_titulo=proceso_titulo,
+                    skills_clave=skills_clave[:4],
+                )
 
-            if "error" in email_result:
-                span.set_attribute("error", email_result["error"])
-                return jsonify({"status": "error", "message": email_result["error"]}), 500
+                if "error" in email_result:
+                    span.set_attribute("error", email_result["error"])
+                    return jsonify({"status": "error", "message": email_result["error"]}), 500
+
+                cuerpo_email = email_result.get("cuerpo_texto", "")
+                asunto = asunto or email_result.get("asunto")
 
             from tools.crear_borrador_email import crear_borrador_email
             send_result = crear_borrador_email(
                 candidato_nombre=candidato_nombre,
                 candidato_email=candidato_email,
                 proceso_titulo=proceso_titulo,
-                cuerpo_email=email_result.get("cuerpo_texto", ""),
-                asunto=email_result.get("asunto"),
+                cuerpo_email=cuerpo_email,
+                asunto=asunto,
             )
 
             if send_result.get("status") == "enviado":

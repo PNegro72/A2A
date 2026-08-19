@@ -1,29 +1,40 @@
 """
-Wrapper de Google Calendar API con OAuth2 para el agente de scheduling.
+Wrapper de Google Calendar API + Gmail API con OAuth2 para el agente de scheduling.
 
 Reemplaza los nodos de n8n `get_calendar_availability` y `create_calendar_event`
-por llamadas directas a la API de Google Calendar (gratuita):
+por llamadas directas a la API de Google Calendar (gratuita), y además envía los
+emails de contacto a candidatos (delegados por el agente de entrevistas) vía
+Gmail API, reutilizando las mismas credenciales OAuth2:
 
   - get_credentials():  carga/refresca el token OAuth2 (token.json), o lo genera
                         de forma interactiva a partir de credentials.json.
   - get_freebusy():     consulta la disponibilidad (freebusy) de los participantes
                         y devuelve los bloques ocupados unificados y fusionados.
   - create_event():     crea un evento con invitados y link de Google Meet.
+  - send_email():       envía un email desde la cuenta autenticada vía Gmail API.
 
 Variables de entorno:
   GOOGLE_CREDENTIALS_FILE  ruta al credentials.json (default: credentials.json)
   GOOGLE_TOKEN_FILE        ruta al token.json       (default: token.json)
+
+Nota: agregar el scope de Gmail a un token.json generado antes de esta feature
+invalida su alcance — hay que volver a correr `setup_oauth.py` para reautorizar.
 """
 
+import base64
 import os
 import uuid
+from email.mime.text import MIMEText
 
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-SCOPES = ["https://www.googleapis.com/auth/calendar"]
+SCOPES = [
+    "https://www.googleapis.com/auth/calendar",
+    "https://www.googleapis.com/auth/gmail.send",
+]
 
 
 def _credentials_file() -> str:
@@ -63,6 +74,10 @@ def get_credentials() -> Credentials:
 
 def _build_service():
     return build("calendar", "v3", credentials=get_credentials(), cache_discovery=False)
+
+
+def _build_gmail_service():
+    return build("gmail", "v1", credentials=get_credentials(), cache_discovery=False)
 
 
 def get_organizer_email() -> str:
@@ -166,3 +181,25 @@ def create_event(
         )
         .execute()
     )
+
+
+def send_email(to: str, subject: str, body: str) -> dict:
+    """
+    Envía un email vía Gmail API desde la cuenta autenticada (misma cuenta que
+    Calendar). Gmail siempre usa esa cuenta como remitente real: no soporta un
+    "From" arbitrario sin delegación de dominio, así que no se acepta remitente.
+
+    Detecta HTML vs texto plano mirando si `body` arranca con '<'.
+
+    Retorna el mensaje creado por la API (incluye al menos "id").
+    """
+    service = _build_gmail_service()
+
+    is_html = body.strip().startswith("<")
+    message = MIMEText(body, "html" if is_html else "plain", "utf-8")
+    message["to"] = to
+    message["subject"] = subject
+
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode("utf-8")
+
+    return service.users().messages().send(userId="me", body={"raw": raw}).execute()

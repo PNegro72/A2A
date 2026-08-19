@@ -1,8 +1,8 @@
 {
   "name": "scheduling_agent",
   "version": "1.0.0",
-  "description": "Schedules meetings and interviews. Queries participants' Google Calendar availability, proposes free slots within a given time window, and creates confirmed events with an auto-generated Google Meet link. All datetimes in UTC.",
-  "when_to_use": "When the user wants to schedule, book, arrange, check availability for, or confirm a meeting, interview, call, or calendar event.",
+  "description": "Schedules meetings and interviews. Queries participants' Google Calendar availability, proposes free slots within a given time window, and creates confirmed events with an auto-generated Google Meet link. Also sends candidate contact emails via Gmail API on behalf of the interview agent. All datetimes in UTC.",
+  "when_to_use": "When the user wants to schedule, book, arrange, check availability for, or confirm a meeting, interview, call, or calendar event — or when a candidate contact email needs to be sent.",
   "webhook_url": "http://localhost:8004/scheduling-agent",
   "http_method": "POST",
   "actions": [
@@ -34,6 +34,23 @@
       "possible_responses": [
         { "status": "meeting_confirmed", "fields": ["event_id", "event_link", "meet_link", "summary", "start", "end"] },
         { "status": "error", "fields": ["code", "phase", "message"] }
+      ]
+    },
+    {
+      "name": "send_email",
+      "description": "Sends a contact email to a candidate via Gmail API, from the scheduling account's authenticated Gmail address. Used by the interview agent (agente_entrevistas) to delegate the actual email transport, instead of sending it directly.",
+      "request_schema": {
+        "action": "send_email",
+        "candidato_email": "candidate@example.com",
+        "asunto": "string",
+        "cuerpo_email": "string (plain text or HTML)",
+        "candidato_nombre": "string (optional, for logging only)",
+        "proceso_titulo": "string (optional, for logging only)",
+        "remitente_email": "string (optional, ignored — Gmail always sends from the authenticated account)"
+      },
+      "possible_responses": [
+        { "status": "enviado", "fields": ["message_id", "remitente", "destinatario", "asunto", "mensaje"] },
+        { "status": "error", "fields": ["code", "message"] }
       ]
     }
   ],

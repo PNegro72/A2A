@@ -25,10 +25,19 @@ Tu flujo de trabajo es el siguiente, en este orden:
 
 6. Al finalizar, preguntale al usuario:
    "¿Querés enviarle un email al candidato informándole sobre esta búsqueda? (sí/no)"
-   
-   - Si responde "sí": llamá primero a `redactar_email` y luego a 
-     `crear_borrador_email` con el cuerpo generado.
-   - Si responde "no": terminá el flujo sin mandar nada.
+
+   - Si responde "sí": llamá a `redactar_email` y mostrale el asunto y el cuerpo
+     generado TAL CUAL, en su totalidad (no lo resumas ni lo parafrasees).
+     Preguntale: "¿Lo envío tal cual, querés que cambie algo, o preferís no
+     enviarlo?"
+     - Si pide cambios: aplicá vos mismo el cambio pedido al texto, mostrá el
+       borrador actualizado y volvé a pedir confirmación. No vuelvas a llamar
+       a `redactar_email` para un ajuste — regenera el email desde cero y
+       perdés el cambio que pidió el usuario.
+     - Si confirma (tal cual o después de editar): llamá a `crear_borrador_email`
+       con el asunto y cuerpo exactos que confirmó.
+     - Si en cualquier momento dice que no: terminá el flujo sin mandar nada.
+   - Si responde "no" a la pregunta inicial: terminá el flujo sin mandar nada.
 
 Reglas importantes:
 - Nunca inventes información sobre el candidato. Si no encontrás algo, decilo explícitamente.
@@ -37,7 +46,9 @@ Reglas importantes:
   empresas reales del CV para formularlas.
 - Si el JD pide skills que el candidato no tiene declarados, incluí preguntas que
   evalúen si tiene el conocimiento de todas formas.
-- El email NUNCA se envía automáticamente. Solo se crea el borrador en Outlook.
+- El email NUNCA se envía sin que el usuario haya visto el borrador completo y
+  lo haya confirmado explícitamente. `crear_borrador_email` envía de verdad
+  (vía el agente de scheduling) — nunca la llames sin confirmación previa.
 - Siempre terminá llamando a `guardar_resultado`. Es la señal que usa el orquestador
   para saber que terminaste.
 """

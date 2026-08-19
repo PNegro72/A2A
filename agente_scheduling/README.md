@@ -4,18 +4,21 @@ Agenda reuniones y entrevistas sobre **Google Calendar** (OAuth2). Reemplaza el
 workflow de n8n (`scheduling-agent-json.json`) por una implementación en
 Python/Flask, manteniendo exactamente la misma interfaz A2A.
 
-Expone dos acciones:
+Expone tres acciones:
 
 - **`propose_slots`** — consulta la disponibilidad (freebusy) de los participantes
   dentro de una ventana de tiempo y propone hasta 5 slots libres de la duración pedida.
 - **`confirm_booking`** — crea el evento en el calendario del organizador, invita
   al resto de participantes y genera un link de Google Meet.
+- **`send_email`** — envía un email de contacto a un candidato vía Gmail API, desde
+  la cuenta autenticada. Usada por el agente de entrevistas (`agente_entrevistas`),
+  que delega acá toda la lógica de transporte de email en vez de enviarlo directo.
 
 ## Endpoints
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `POST` | `/scheduling-agent` | Switch por `body.action` (`propose_slots` \| `confirm_booking`) |
+| `POST` | `/scheduling-agent` | Switch por `body.action` (`propose_slots` \| `confirm_booking` \| `send_email`) |
 | `GET` | `/scheduling-agent-card` | Agent card JSON |
 | `GET` | `/health` | Healthcheck |
 
@@ -25,7 +28,7 @@ Puerto por defecto: **8004** (configurable con `SCHEDULING_AGENT_PORT`).
 
 ### 1. Google Cloud Console
 1. Entrá a [Google Cloud Console](https://console.cloud.google.com/) → creá un proyecto.
-2. Habilitá la **Google Calendar API** en *APIs & Services → Library*.
+2. Habilitá la **Google Calendar API** y la **Gmail API** en *APIs & Services → Library*.
 3. Creá credenciales **OAuth2** de tipo **"Desktop app"** en *APIs & Services → Credentials*.
 4. Descargá el JSON y guardalo como `credentials.json` en `agente_scheduling/`.
 
@@ -40,7 +43,12 @@ python -m venv .venv
 python setup_oauth.py
 ```
 Abre el browser para autorizar; usá la **cuenta de Gmail del organizador** (cuyo
-calendario se usa para crear los eventos). Guarda `token.json`.
+calendario se usa para crear los eventos, y desde la que se envían los emails de
+`send_email`). Guarda `token.json`.
+
+> Si ya tenías un `token.json` generado antes de que existiera la acción
+> `send_email`, no incluye el scope de Gmail — borralo y volvé a correr
+> `setup_oauth.py` para reautorizar con el nuevo scope.
 
 ### 4. Configurar variables de entorno
 ```bash
@@ -81,6 +89,18 @@ curl -X POST http://localhost:8004/scheduling-agent \
     "participants": ["org@example.com", "cand@example.com"],
     "chosen_slot": { "start": "2026-04-21T14:00:00Z", "end": "2026-04-21T14:30:00Z" },
     "meeting_title": "Entrevista técnica"
+  }'
+```
+
+### send_email
+```bash
+curl -X POST http://localhost:8004/scheduling-agent \
+  -H "Content-Type: application/json" \
+  -d '{
+    "action": "send_email",
+    "candidato_email": "cand@example.com",
+    "asunto": "Oportunidad laboral: Senior Backend Engineer",
+    "cuerpo_email": "<p>Hola, te contactamos por una oportunidad...</p>"
   }'
 ```
 

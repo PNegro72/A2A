@@ -1,8 +1,8 @@
 {
   "name": "entrevistas_agent",
-  "version": "2.3.0",
-  "description": "Prepares a complete interview kit for a given candidate and optionally sends a contact email. Receives the candidate profile directly in the request payload. Supports CV text for inflation detection.",
-  "when_to_use": "When the user wants to: (1) prepare an interview for a specific candidate (internal ATS or external from Himalayas), generate tailored questions, or produce the interview kit document — use action 'preparar_entrevista'. (2) send a contact email to a candidate about an open position AFTER the kit has already been prepared — use action 'enviar_email'. For external candidates (no email/experiencia in system), use profile_url for web search to gather contact info.",
+  "version": "2.4.0",
+  "description": "Prepares a complete interview kit for a given candidate and optionally sends a contact email (as a draft-then-send flow). Receives the candidate profile directly in the request payload. Supports CV text for inflation detection.",
+  "when_to_use": "When the user wants to: (1) prepare an interview for a specific candidate (internal ATS or external from Himalayas), generate tailored questions, or produce the interview kit document — use action 'preparar_entrevista'. (2) draft a contact email to a candidate about an open position AFTER the kit has already been prepared, WITHOUT sending it — use action 'redactar_email', then show the draft to the user for confirmation. (3) actually send the previously drafted and confirmed email — use action 'enviar_email'. For external candidates (no email/experiencia in system), use profile_url for web search to gather contact info.",
   "webhook_url": "http://localhost:8003/a2a/entrevistas",
   "http_method": "POST",
   "actions": [
@@ -58,14 +58,35 @@
       ]
     },
     {
+      "name": "redactar_email",
+      "description": "Drafts (asunto + cuerpo) a contact email for a candidate about an open position, WITHOUT sending it. Use this ONLY after 'preparar_entrevista' has already been called. The orchestrator must show the returned draft to the user and get explicit confirmation before calling 'enviar_email'.",
+      "request_schema": {
+        "action": "redactar_email",
+        "candidato_nombre": "string — candidate full name",
+        "proceso_titulo": "string — position title",
+        "skills_clave": ["list of 2-4 skill strings"]
+      },
+      "possible_responses": [
+        {
+          "status": "ok",
+          "fields": ["asunto", "cuerpo_texto", "cuerpo_html"]
+        },
+        {
+          "status": "error",
+          "fields": ["message"]
+        }
+      ]
+    },
+    {
       "name": "enviar_email",
-      "description": "Sends a contact email to a candidate about an open position. Use this ONLY after 'preparar_entrevista' has already been called. Never regenerates the kit.",
+      "description": "Sends a contact email to a candidate about an open position. Use this ONLY after the user has seen and confirmed the draft from 'redactar_email' — pass that exact 'asunto' and 'cuerpo_email' through. Never regenerates the kit.",
       "request_schema": {
         "action": "enviar_email",
         "candidato_nombre": "string — candidate full name",
         "candidato_email": "string — candidate email address",
         "proceso_titulo": "string — position title",
-        "skills_clave": ["list of 2-4 skill strings"]
+        "asunto": "string — exact subject the user confirmed (from 'redactar_email', possibly edited)",
+        "cuerpo_email": "string — exact body the user confirmed (from 'redactar_email', possibly edited)"
       },
       "possible_responses": [
         {
@@ -81,7 +102,7 @@
   ],
   "conventions": {
     "cv_handling": "When the user uploads a CV file, the orchestrator extracts the text and includes it in the conversation context. Pass this extracted text in 'candidato.cv_texto'. Never pass cv_base64 — always use plain text.",
-    "email_behavior": "Always use 'enviar_email' action to send emails. Never pass 'enviar_email: true' to 'preparar_entrevista' — that field is ignored.",
+    "email_behavior": "Two-step, draft-then-send: call 'redactar_email' first, show the draft to the user, get explicit confirmation, then call 'enviar_email' passing the confirmed 'asunto'/'cuerpo_email' — never call 'enviar_email' without a shown-and-confirmed draft. Never pass 'enviar_email: true' to 'preparar_entrevista' — that field is ignored.",
     "question_categories": "tecnica, conductual, presion",
     "web_search": "Non-blocking. Continues with CV data if no results found.",
     "state": "Stateless. Candidate profile must be in the request payload.",

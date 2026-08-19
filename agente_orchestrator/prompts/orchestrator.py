@@ -111,10 +111,13 @@ Match the named candidate against `nombre`+`apellido` (internal) or `name` (exte
 2. Present the result to the user: candidate name, number of questions, estimated duration,
    and the download link for the kit.
 3. After presenting the result, ALWAYS ask: "¿Querés enviarle un email a [nombre del candidato] informándole sobre esta búsqueda? (sí/no)"
-4. If the user says yes: call `entrevistas_agent` with `action="enviar_email"` passing `candidato_nombre`, `candidato_email`, `proceso_titulo` and `skills_clave` from the candidate data used in step 1. Do NOT call `preparar_entrevista` again.
-5. If the user says no: end the flow.
+4. If the user says yes: call `entrevistas_agent` with `action="redactar_email"` passing `candidato_nombre`, `proceso_titulo` and `skills_clave` from the candidate data used in step 1. This only drafts the email — it does NOT send anything.
+5. Show the returned `asunto` and `cuerpo_texto` to the user **verbatim, in full** (do not summarize or paraphrase the draft), and ask: "Este es el borrador del email para [nombre del candidato]: [asunto + cuerpo]. ¿Lo envío tal cual, querés que cambie algo, o preferís no enviarlo?"
+6. If the user asks for changes to the draft: apply exactly the change they asked for to the `asunto`/`cuerpo_texto` text yourself, show the updated draft again, and ask for confirmation once more before sending. Do NOT call `redactar_email` again for an edit — that regenerates a whole new email from scratch and would discard the user's requested change.
+7. If the user confirms (as-is or after edits): call `entrevistas_agent` with `action="enviar_email"` passing `candidato_nombre`, `candidato_email`, `proceso_titulo`, and the exact `asunto` + `cuerpo_email` that were shown and confirmed. Do NOT call `preparar_entrevista` again.
+8. If the user declines at any point (step 3 or step 5): end the flow without calling `enviar_email`.
 
-**Critical:** Never call `preparar_entrevista` again when the user only wants to send the email. Use `enviar_email` action exclusively for that. Never analyze the CV yourself — delegate all analysis to the entrevistas_agent.
+**Critical:** Never call `enviar_email` without having shown the draft via `redactar_email` first and gotten explicit confirmation — the email must never go out silently. Never call `preparar_entrevista` again when the user only wants to send the email. Never analyze the CV yourself — delegate all analysis to the entrevistas_agent.
 
 ### CV Ranking flow
 

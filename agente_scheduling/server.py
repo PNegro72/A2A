@@ -6,13 +6,15 @@ real en Python sobre Google Calendar API (OAuth2). Mantiene exactamente la misma
 interfaz A2A que exponía n8n.
 
 Endpoints:
-    POST /scheduling-agent        -> switch por body.action (propose_slots | confirm_booking)
+    POST /scheduling-agent        -> switch por body.action (propose_slots | confirm_booking | send_email)
     GET  /scheduling-agent-card   -> agent card JSON (webhook_url -> local)
     GET  /health                  -> healthcheck
 
 Acciones (POST /scheduling-agent):
     propose_slots    consulta freebusy de los participantes y propone hasta 5 slots libres
     confirm_booking  crea el evento con link de Google Meet e invita a los participantes
+    send_email       envía un email de contacto a un candidato vía Gmail API (usado por el
+                     agente de entrevistas, que delega toda la lógica de transporte acá)
 
 Correr con (desde la carpeta agente_scheduling/):
     python server.py
@@ -35,7 +37,7 @@ from flask_cors import CORS  # noqa: E402
 from pydantic import ValidationError  # noqa: E402
 
 import calendar_service  # noqa: E402
-from models import ConfirmRequest, ProposeRequest  # noqa: E402
+from models import ConfirmRequest, ProposeRequest, SendEmailRequest  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,11 +58,13 @@ AGENT_CARD = {
     "description": (
         "Schedules meetings and interviews. Queries participants' Google Calendar "
         "availability, proposes free slots within a given time window, and creates "
-        "confirmed events with an auto-generated Google Meet link. All datetimes in UTC."
+        "confirmed events with an auto-generated Google Meet link. Also sends candidate "
+        "contact emails via Gmail API on behalf of the interview agent. All datetimes in UTC."
     ),
     "when_to_use": (
         "When the user wants to schedule, book, arrange, check availability for, or "
-        "confirm a meeting, interview, call, or calendar event."
+        "confirm a meeting, interview, call, or calendar event — or when a candidate "
+        "contact email needs to be sent."
     ),
     "webhook_url": "http://localhost:8004/scheduling-agent",
     "http_method": "POST",
@@ -104,6 +108,28 @@ AGENT_CARD = {
             "possible_responses": [
                 {"status": "meeting_confirmed", "fields": ["event_id", "event_link", "meet_link", "summary", "start", "end"]},
                 {"status": "error", "fields": ["code", "phase", "message"]},
+            ],
+        },
+        {
+            "name": "send_email",
+            "description": (
+                "Sends a contact email to a candidate via Gmail API, from the "
+                "scheduling account's authenticated Gmail address. Used by the "
+                "interview agent (agente_entrevistas) to delegate the actual "
+                "email transport, instead of sending it directly."
+            ),
+            "request_schema": {
+                "action": "send_email",
+                "candidato_email": "candidate@example.com",
+                "asunto": "string",
+                "cuerpo_email": "string (plain text or HTML)",
+                "candidato_nombre": "string (optional, for logging only)",
+                "proceso_titulo": "string (optional, for logging only)",
+                "remitente_email": "string (optional, ignored — Gmail always sends from the authenticated account)",
+            },
+            "possible_responses": [
+                {"status": "enviado", "fields": ["message_id", "remitente", "destinatario", "asunto", "mensaje"]},
+                {"status": "error", "fields": ["code", "message"]},
             ],
         },
     ],
@@ -183,6 +209,9 @@ def scheduling_agent():
 
     if action == "confirm_booking":
         return _confirm_booking(body)
+
+    if action == "send_email":
+        return _send_email(body)
 
     return jsonify({"status": "error", "code": "UNKNOWN_ACTION"})
 
@@ -286,6 +315,46 @@ def _confirm_booking(body: dict):
         "summary": event.get("summary", ""),
         "start": event.get("start", {}).get("dateTime", ""),
         "end": event.get("end", {}).get("dateTime", ""),
+    })
+
+
+def _send_email(body: dict):
+    try:
+        req = SendEmailRequest(**body)
+    except ValidationError as exc:
+        return jsonify({
+            "status": "error",
+            "code": "INVALID_PAYLOAD",
+            "message": _format_errors(exc),
+        }), 400
+
+    logger.info(
+        "send_email | to=%s asunto=%s proceso=%s",
+        req.candidato_email, req.asunto, req.proceso_titulo,
+    )
+
+    try:
+        organizer = calendar_service.get_organizer_email()
+        result = calendar_service.send_email(
+            to=req.candidato_email,
+            subject=req.asunto,
+            body=req.cuerpo_email,
+        )
+    except Exception as exc:
+        logger.exception("Error enviando email vía Gmail")
+        return jsonify({
+            "status": "error",
+            "code": "GMAIL_API_ERROR",
+            "message": f"Failed to send email via Gmail: {exc}",
+        }), 500
+
+    return jsonify({
+        "status": "enviado",
+        "message_id": result.get("id", ""),
+        "remitente": organizer,
+        "destinatario": req.candidato_email,
+        "asunto": req.asunto,
+        "mensaje": f"Email enviado correctamente a {req.candidato_email} via Gmail ({organizer}).",
     })
 
 
