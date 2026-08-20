@@ -34,7 +34,7 @@ QDRANT_API_KEY: str = os.environ["QDRANT_API_KEY"]
 # which Qdrant Cloud also serves the REST API on — hence this override.
 QDRANT_PORT: int = int(os.getenv("QDRANT_PORT", "443"))
 
-COLLECTION_NAME: str = os.getenv("QDRANT_COLLECTION", "rag_documents")
+COLLECTION_NAME: str = os.getenv("QDRANT_COLLECTION", "CVs")
 COLLECTION_NAME_HYBRID: str = os.getenv("QDRANT_COLLECTION_HYBRID", "rag_documents_hybrid")
 
 # ─────────────────────────────────────────────

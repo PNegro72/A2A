@@ -49,7 +49,8 @@ def _agrupar_chunks_por_cv(chunks: list[dict]) -> list[Cvs_data]:
         texto = "\n\n".join(
             (c.get("text") or "").strip() for c in ordenados if c.get("text")
         )
-        mejor_score = max((float(c.get("score", 0.0)) for c in group), default=0.0)
+        scores = [float(c.get("score", 0.0)) for c in group]
+        mejor_score = sum(scores) / len(scores) if scores else 0.0
         mejor_score = max(0.0, min(1.0, mejor_score))  # clamp defensivo a [0,1]
         nombre = Path(source).stem or source
         candidatos.append(
